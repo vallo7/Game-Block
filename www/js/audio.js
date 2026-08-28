@@ -21,7 +21,7 @@ const GameAudio = {
     this.ctx = new AudioContextClass();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.18;
+    this.master.gain.value = 0.34;
     this.master.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
@@ -61,7 +61,7 @@ const GameAudio = {
     const {
       duration = 0.08,
       type = "sine",
-      gain = 0.16,
+      gain = 0.2,
       slideTo = null,
       delay = 0
     } = options;
@@ -91,9 +91,9 @@ const GameAudio = {
 
   playClick() {
     this.playTone(540, {
-      duration: 0.035,
+      duration: 0.04,
       type: "triangle",
-      gain: 0.06
+      gain: 0.12
     });
   },
 
@@ -102,7 +102,7 @@ const GameAudio = {
     this.playTone(freq, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.13
+      gain: 0.2
     });
   },
 
@@ -110,7 +110,7 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.04,
       type: "triangle",
-      gain: 0.07,
+      gain: 0.12,
       slideTo: 180
     });
   },
@@ -119,23 +119,23 @@ const GameAudio = {
     this.playTone(330, {
       duration: 0.08,
       type: "sine",
-      gain: 0.15,
+      gain: 0.24,
       slideTo: 430
     });
 
     this.playTone(520, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.06,
+      gain: 0.12,
       delay: 0.03
     });
   },
 
   playCancel() {
     this.playTone(190, {
-      duration: 0.10,
+      duration: 0.1,
       type: "triangle",
-      gain: 0.08,
+      gain: 0.16,
       slideTo: 110
     });
   },
@@ -148,7 +148,7 @@ const GameAudio = {
       this.playTone(base * Math.pow(1.19, i), {
         duration: 0.09,
         type: "triangle",
-        gain: 0.18,
+        gain: 0.26,
         delay: i * 0.032
       });
     }
@@ -157,17 +157,30 @@ const GameAudio = {
       this.playTone(base * 2, {
         duration: 0.18,
         type: "sine",
-        gain: 0.20,
+        gain: 0.28,
         delay: 0.12
+      });
+    }
+  },
+
+  playColorShift() {
+    const base = 523;
+
+    for (let i = 0; i < 4; i++) {
+      this.playTone(base * Math.pow(1.26, i), {
+        duration: 0.1,
+        type: "triangle",
+        gain: 0.26,
+        delay: i * 0.05
       });
     }
   },
 
   playError() {
     this.playTone(110, {
-      duration: 0.10,
+      duration: 0.1,
       type: "square",
-      gain: 0.06,
+      gain: 0.14,
       slideTo: 70
     });
   },
@@ -176,7 +189,7 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.22,
       type: "sawtooth",
-      gain: 0.06,
+      gain: 0.14,
       slideTo: 70
     });
   },
@@ -199,7 +212,7 @@ const GameAudio = {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
 
-      gain.gain.value = index === 0 ? 0.20 : 0.10;
+      gain.gain.value = index === 0 ? 0.2 : 0.1;
 
       osc.type = "sine";
       osc.frequency.value = freq;
