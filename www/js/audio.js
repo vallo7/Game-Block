@@ -91,9 +91,16 @@ const GameAudio = {
 
   playClick() {
     this.playTone(540, {
-      duration: 0.04,
+      duration: 0.05,
       type: "triangle",
-      gain: 0.12
+      gain: 0.26
+    });
+
+    this.playTone(760, {
+      duration: 0.04,
+      type: "sine",
+      gain: 0.14,
+      delay: 0.02
     });
   },
 
@@ -182,6 +189,14 @@ const GameAudio = {
       type: "square",
       gain: 0.14,
       slideTo: 70
+    });
+  },
+
+  playCountdown() {
+    this.playTone(660, {
+      duration: 0.06,
+      type: "triangle",
+      gain: 0.2
     });
   },
 
