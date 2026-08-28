@@ -30,6 +30,9 @@
       </div>
     </div>
 
+    <!-- BURST DE CHANGEMENT DE COULEUR -->
+    <div id="themeBurst" aria-hidden="true"></div>
+
     <!-- MENU -->
     <section id="menuScreen" class="screen active">
       <div class="menu-hero">
@@ -45,7 +48,7 @@
       </div>
 
       <div class="mode-list">
-        <button id="classicModeBtn" class="mode-card active">
+        <button id="classicModeBtn" class="mode-card mode-c1">
           <span class="mode-icon">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <rect x="4" y="4" width="7" height="7" rx="2"></rect>
@@ -67,7 +70,7 @@
           </span>
         </button>
 
-        <button class="mode-card locked" disabled>
+        <button class="mode-card locked mode-c2" disabled>
           <span class="mode-icon">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <circle cx="12" cy="12" r="7"></circle>
@@ -88,7 +91,7 @@
           </span>
         </button>
 
-        <button class="mode-card locked" disabled>
+        <button class="mode-card locked mode-c3" disabled>
           <span class="mode-icon">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <rect x="4" y="4" width="16" height="16" rx="3"></rect>
@@ -109,7 +112,7 @@
           </span>
         </button>
 
-        <button class="mode-card locked" disabled>
+        <button class="mode-card locked mode-c4" disabled>
           <span class="mode-icon">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M5 19c4.5-1 7.5-3.8 9-8.5"></path>
@@ -188,7 +191,7 @@
     <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
       <div class="settings-panel">
         <div class="settings-top">
-          <button id="settingsHomeBtn" class="mini-btn" aria-label="Home">
+          <button id="settingsHomeBtn" class="mini-btn btn-home" aria-label="Home">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M4 11.5 12 4l8 7.5"></path>
               <path d="M7 10.5V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.5"></path>
@@ -197,7 +200,7 @@
 
           <div class="settings-title">Settings</div>
 
-          <button id="settingsCloseBtn" class="mini-btn" aria-label="Close">
+          <button id="settingsCloseBtn" class="mini-btn btn-close" aria-label="Close">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M6 6l12 12"></path>
               <path d="M18 6 6 18"></path>
@@ -273,6 +276,7 @@
   </div>
 
   <script src="js/storage.js"></script>
+  <script src="js/theme.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/haptics.js"></script>
   <script src="js/settings.js"></script>
