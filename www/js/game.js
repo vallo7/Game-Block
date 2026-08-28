@@ -13,6 +13,7 @@ const Game = {
   path: [],
 
   score: 0,
+  displayedScore: 0,
   best: 0,
   turn: 1,
   totalCleared: 0,
@@ -21,16 +22,21 @@ const Game = {
   queue: [],
   turnsSinceObstacle: 0,
 
-  previousScore: -1,
-  previousRemaining: -1,
-  previousRequired: -1,
+  combo: 0,
+  comboUntil: 0,
 
-  popAnims: [],
-  invalidFlashes: [],
+  timeScale: 1,
+  lastFrame: null,
+  gameNow: 0,
+
+  pointer: { x: 0, y: 0, active: false },
+
+  cellAnims: {},
+  cancelAnims: [],
   particles: [],
-  clearFlashes: [],
   debris: [],
   shockwaves: [],
+  lineFlashes: [],
 
   lastInvalidKey: null,
   lastInvalidTime: 0,
@@ -45,8 +51,15 @@ const Game = {
     this.resize();
 
     const tick = (now) => {
+      const realDelta = Math.min(50, now - (this.lastFrame ?? now));
+      this.lastFrame = now;
+
+      this.timeScale += (1 - this.timeScale) * Math.min(1, realDelta / 260);
+      this.gameNow += realDelta * this.timeScale;
+
       if (this.active) {
-        this.draw(now);
+        this.update(realDelta);
+        this.draw();
       }
 
       requestAnimationFrame(tick);
@@ -57,11 +70,8 @@ const Game = {
 
   start() {
     this.active = true;
+    this.lastFrame = null;
     this.reset();
-
-    requestAnimationFrame(() => {
-      this.resize();
-    });
   },
 
   stop() {
@@ -74,24 +84,25 @@ const Game = {
 
     this.path = [];
     this.score = 0;
+    this.displayedScore = 0;
     this.turn = 1;
     this.totalCleared = 0;
     this.turnsSinceObstacle = 0;
+
+    this.combo = 0;
+    this.comboUntil = 0;
+    this.timeScale = 1;
 
     this.gameOver = false;
     this.drawing = false;
     this.strokeStarted = false;
 
-    this.popAnims = [];
-    this.invalidFlashes = [];
+    this.cellAnims = {};
+    this.cancelAnims = [];
     this.particles = [];
-    this.clearFlashes = [];
     this.debris = [];
     this.shockwaves = [];
-
-    this.previousScore = -1;
-    this.previousRemaining = -1;
-    this.previousRequired = -1;
+    this.lineFlashes = [];
 
     this.queue = [];
     for (let i = 0; i < 3; i++) {
@@ -101,6 +112,10 @@ const Game = {
     this.setupNextBlock();
 
     document.getElementById("gameOverOverlay").classList.add("hidden");
+    document.getElementById("comboBadge").classList.add("hidden");
+
+    const scoreEl = document.getElementById("currentScore");
+    scoreEl.textContent = "0";
 
     this.updateHUD();
   },
@@ -115,7 +130,11 @@ const Game = {
 
       this.canvas.setPointerCapture(event.pointerId);
 
+      this.sanitizeStroke();
+
       const cell = this.getCellFromEvent(event);
+      this.updatePointer(event, true);
+
       if (!cell) return;
 
       this.drawing = true;
@@ -123,7 +142,11 @@ const Game = {
     });
 
     this.canvas.addEventListener("pointermove", (event) => {
-      if (!this.active || !this.drawing || !this.strokeStarted || this.gameOver) return;
+      if (!this.active) return;
+
+      this.updatePointer(event, this.drawing);
+
+      if (!this.drawing || !this.strokeStarted || this.gameOver) return;
 
       event.preventDefault();
 
@@ -140,6 +163,7 @@ const Game = {
 
       this.drawing = false;
       this.strokeStarted = false;
+      this.pointer.active = false;
 
       if (this.gameOver) return;
 
@@ -152,6 +176,8 @@ const Game = {
 
     this.canvas.addEventListener("pointercancel", () => {
       if (!this.active) return;
+
+      this.pointer.active = false;
       this.cancelPath(false);
     });
 
@@ -168,6 +194,26 @@ const Game = {
     });
   },
 
+  updatePointer(event, active) {
+    const rect = this.canvas.getBoundingClientRect();
+
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * this.canvas.width;
+    this.pointer.y = ((event.clientY - rect.top) / rect.height) * this.canvas.height;
+    this.pointer.active = active;
+  },
+
+  sanitizeStroke() {
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] === 1) {
+          this.cells[y][x] = 0;
+        }
+      }
+    }
+
+    this.path = [];
+  },
+
   resize() {
     if (!this.canvas) return;
 
@@ -179,6 +225,37 @@ const Game = {
     if (size > 0) {
       this.canvas.width = size;
       this.canvas.height = size;
+    }
+  },
+
+  ensureCanvasSize() {
+    const dpr = Math.max(window.devicePixelRatio || 1, 1);
+    const target = Math.floor(this.canvas.clientWidth * dpr);
+
+    if (target > 0 && this.canvas.width !== target) {
+      this.canvas.width = target;
+      this.canvas.height = target;
+    }
+  },
+
+  update(realDelta) {
+    this.ensureCanvasSize();
+
+    const scoreEl = document.getElementById("currentScore");
+
+    if (this.displayedScore !== this.score) {
+      const diff = this.score - this.displayedScore;
+      const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.16));
+
+      this.displayedScore += diff > 0 ? step : -step;
+
+      scoreEl.textContent = this.displayedScore;
+    }
+
+    const badge = document.getElementById("comboBadge");
+
+    if (!badge.classList.contains("hidden") && this.gameNow > this.comboUntil) {
+      badge.classList.add("hidden");
     }
   },
 
@@ -231,10 +308,7 @@ const Game = {
     let random = Math.random() * total;
 
     for (let i = 0; i < weights.length; i++) {
-      if (random < weights[i]) {
-        return i + 1;
-      }
-
+      if (random < weights[i]) return i + 1;
       random -= weights[i];
     }
 
@@ -252,6 +326,22 @@ const Game = {
     this.updateHUD();
   },
 
+  wouldCompleteLine(x, y) {
+    let rowFilled = 0;
+    for (let x2 = 0; x2 < this.SIZE; x2++) {
+      if (x2 !== x && this.cells[y][x2] !== 0) rowFilled++;
+    }
+    if (rowFilled === this.SIZE - 1) return true;
+
+    let colFilled = 0;
+    for (let y2 = 0; y2 < this.SIZE; y2++) {
+      if (y2 !== y && this.cells[y2][x] !== 0) colFilled++;
+    }
+    if (colFilled === this.SIZE - 1) return true;
+
+    return false;
+  },
+
   maybeSpawnObstacles() {
     const diff = this.getDifficulty();
     const interval = Math.max(3, 5 - Math.floor(diff * 2));
@@ -264,25 +354,20 @@ const Game = {
 
     let count = 1 + Math.round(diff * 2);
 
-    if (fill > 0.78) {
-      count = Math.max(1, count - 1);
-    }
-
-    if (fill < 0.22) {
-      count = Math.min(4, count + 1);
-    }
+    if (fill > 0.78) count = Math.max(1, count - 1);
+    if (fill < 0.22) count = Math.min(4, count + 1);
 
     const cells = this.chooseObstacleCells(count);
 
     cells.forEach(cell => {
       this.cells[cell.y][cell.x] = 3;
 
-      this.popAnims.push({
-        x: cell.x,
-        y: cell.y,
-        start: performance.now(),
-        rgb: "148,163,184"
-      });
+      this.cellAnims[`${cell.x},${cell.y}`] = {
+        start: this.gameNow,
+        type: "spawn"
+      };
+
+      this.spawnParticles(cell.x, cell.y, 4, "#a78bfa");
     });
   },
 
@@ -295,7 +380,11 @@ const Game = {
 
       const key = `${cell.x},${cell.y}`;
 
-      if (this.cells[cell.y][cell.x] === 0 && !keys.has(key)) {
+      if (
+        this.cells[cell.y][cell.x] === 0 &&
+        !keys.has(key) &&
+        !this.wouldCompleteLine(cell.x, cell.y)
+      ) {
         keys.add(key);
         chosen.push(cell);
       }
@@ -311,9 +400,7 @@ const Game = {
 
     while (chosen.length < count) {
       const cell = this.getRandomEmptyCell();
-
       if (!cell) break;
-
       add(cell);
     }
 
@@ -325,9 +412,7 @@ const Game = {
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
-        if (this.cells[y][x] === 0) {
-          emptyCells.push({ x, y });
-        }
+        if (this.cells[y][x] === 0) emptyCells.push({ x, y });
       }
     }
 
@@ -359,10 +444,7 @@ const Game = {
     ]);
 
     for (const dir of directions) {
-      const neighbor = {
-        x: anchor.x + dir.x,
-        y: anchor.y + dir.y
-      };
+      const neighbor = { x: anchor.x + dir.x, y: anchor.y + dir.y };
 
       if (
         neighbor.x >= 0 &&
@@ -390,15 +472,8 @@ const Game = {
     ]);
 
     for (const pattern of patterns) {
-      const a = {
-        x: anchor.x + pattern[0].x,
-        y: anchor.y + pattern[0].y
-      };
-
-      const b = {
-        x: anchor.x + pattern[1].x,
-        y: anchor.y + pattern[1].y
-      };
+      const a = { x: anchor.x + pattern[0].x, y: anchor.y + pattern[0].y };
+      const b = { x: anchor.x + pattern[1].x, y: anchor.y + pattern[1].y };
 
       const valid = [a, b].every(cell => {
         return (
@@ -410,9 +485,7 @@ const Game = {
         );
       });
 
-      if (valid) {
-        return [anchor, a, b];
-      }
+      if (valid) return [anchor, a, b];
     }
 
     return [];
@@ -424,9 +497,7 @@ const Game = {
     const x = Math.floor(((event.clientX - rect.left) / rect.width) * this.SIZE);
     const y = Math.floor(((event.clientY - rect.top) / rect.height) * this.SIZE);
 
-    if (x < 0 || x >= this.SIZE || y < 0 || y >= this.SIZE) {
-      return null;
-    }
+    if (x < 0 || x >= this.SIZE || y < 0 || y >= this.SIZE) return null;
 
     return { x, y };
   },
@@ -463,10 +534,8 @@ const Game = {
 
     if (this.canAddCell(cell.x, cell.y)) {
       this.addCell(cell.x, cell.y);
-    } else {
-      if (this.cells[cell.y][cell.x] === 0) {
-        this.invalidFeedback(cell.x, cell.y);
-      }
+    } else if (this.cells[cell.y][cell.x] === 0) {
+      this.invalidFeedback(cell.x, cell.y);
     }
   },
 
@@ -474,12 +543,10 @@ const Game = {
     this.cells[y][x] = 1;
     this.path.push({ x, y });
 
-    this.popAnims.push({
-      x,
-      y,
-      start: performance.now(),
-      rgb: "34,197,94"
-    });
+    this.cellAnims[`${x},${y}`] = {
+      start: this.gameNow,
+      type: "place"
+    };
 
     GameAudio.playAdd(this.path.length);
     Haptics.vibrate(6);
@@ -529,15 +596,13 @@ const Game = {
   cancelIncomplete() {
     if (this.path.length === 0) return;
 
-    const now = performance.now();
     const cancelledCells = [...this.path];
 
     cancelledCells.forEach(cell => {
-      this.popAnims.push({
+      this.cancelAnims.push({
         x: cell.x,
         y: cell.y,
-        start: now,
-        rgb: "239,68,68"
+        start: this.gameNow
       });
 
       this.spawnDebris(cell.x, cell.y, "#ef4444", 2);
@@ -552,26 +617,24 @@ const Game = {
     const placed = [...this.path];
     this.path = [];
 
-    const now = performance.now();
-
     placed.forEach(cell => {
       this.cells[cell.y][cell.x] = 2;
 
-      this.popAnims.push({
-        x: cell.x,
-        y: cell.y,
-        start: now,
-        rgb: "59,130,246"
-      });
+      this.cellAnims[`${cell.x},${cell.y}`] = {
+        start: this.gameNow,
+        type: "validate"
+      };
     });
 
     GameAudio.playPlace();
     Haptics.vibrate(16);
 
-    this.processClears();
+    const result = this.processClears();
 
     this.turn += 1;
     this.turnsSinceObstacle += 1;
+
+    this.registerCombo(result ? result.count : 0);
 
     this.maybeSpawnObstacles();
     this.checkGameOver();
@@ -580,6 +643,27 @@ const Game = {
       this.setupNextBlock();
     } else {
       this.updateHUD();
+    }
+  },
+
+  registerCombo(clearCount) {
+    const badge = document.getElementById("comboBadge");
+
+    if (clearCount <= 0) {
+      this.combo = 0;
+      badge.classList.add("hidden");
+      return;
+    }
+
+    this.combo += 1;
+    this.comboUntil = this.gameNow + 1600;
+
+    if (this.combo >= 2) {
+      badge.textContent = `COMBO x${this.combo}`;
+      badge.classList.remove("hidden");
+      badge.classList.remove("pop");
+      void badge.offsetWidth;
+      badge.classList.add("pop");
     }
   },
 
@@ -607,13 +691,12 @@ const Game = {
 
     const count = fullRows.length + fullCols.length;
 
-    if (count === 0) return;
+    if (count === 0) return { count: 0, reward: 0 };
 
-    const now = performance.now();
     const clearedKeys = new Set();
 
     for (const y of fullRows) {
-      this.clearFlashes.push({ type: "row", index: y, start: now });
+      this.lineFlashes.push({ type: "row", index: y, start: this.gameNow });
 
       for (let x = 0; x < this.SIZE; x++) {
         clearedKeys.add(`${x},${y}`);
@@ -621,7 +704,7 @@ const Game = {
     }
 
     for (const x of fullCols) {
-      this.clearFlashes.push({ type: "col", index: x, start: now });
+      this.lineFlashes.push({ type: "col", index: x, start: this.gameNow });
 
       for (let y = 0; y < this.SIZE; y++) {
         clearedKeys.add(`${x},${y}`);
@@ -632,10 +715,10 @@ const Game = {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
 
-      const color = value === 3 ? "#94a3b8" : "#60a5fa";
+      const color = value === 3 ? "#a78bfa" : "#6ea8ff";
 
       this.spawnDebris(x, y, color, 3);
-      this.spawnParticles(x, y, 8);
+      this.spawnParticles(x, y, 8, null);
     }
 
     for (const y of fullRows) {
@@ -662,16 +745,27 @@ const Game = {
       reward += 1;
     }
 
+    points += Math.max(0, this.combo) * 50;
+
     this.addScore(points);
 
     this.spawnShockwave(
       this.canvas.width / 2,
       this.canvas.height / 2,
-      this.canvas.width * (count > 1 ? 0.38 : 0.24)
+      this.canvas.width * (count > 1 ? 0.4 : 0.25)
     );
+
+    if (count > 1) {
+      this.timeScale = 0.35;
+    }
 
     GameAudio.playClear(count);
     Haptics.vibrate(count > 1 ? [28, 35, 65] : 24);
+
+    const scoreEl = document.getElementById("currentScore");
+    scoreEl.classList.remove("score-bump");
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add("score-bump");
 
     return { count, reward };
   },
@@ -684,7 +778,7 @@ const Game = {
       Storage.saveBest(this.best);
     }
 
-    this.updateScore();
+    document.getElementById("bestScoreValue").textContent = this.best;
   },
 
   checkGameOver() {
@@ -707,23 +801,8 @@ const Game = {
   },
 
   updateHUD() {
-    this.updateScore();
-
     document.getElementById("bestScoreValue").textContent = this.best;
-    document.getElementById("turnValue").textContent = this.turn;
-
     this.renderAvailableBlocks();
-  },
-
-  updateScore() {
-    const scoreEl = document.getElementById("currentScore");
-    if (!scoreEl) return;
-
-    if (this.score !== this.previousScore) {
-      scoreEl.textContent = this.score;
-      this.bumpElement(scoreEl, "score-bump");
-      this.previousScore = this.score;
-    }
   },
 
   renderAvailableBlocks() {
@@ -731,44 +810,19 @@ const Game = {
 
     const countEl = document.getElementById("availableCount");
     const pillEl = document.getElementById("availablePill");
-    const pipsEl = document.getElementById("availablePips");
+
+    const previous = countEl.textContent;
 
     countEl.textContent = remaining;
 
-    if (
-      remaining !== this.previousRemaining ||
-      this.requiredBlocks !== this.previousRequired
-    ) {
-      this.bumpElement(pillEl, "bump");
-      this.previousRemaining = remaining;
-      this.previousRequired = this.requiredBlocks;
-    }
-
-    pipsEl.innerHTML = "";
-
-    for (let i = 0; i < this.requiredBlocks; i++) {
-      const pip = document.createElement("div");
-      pip.className = "available-pip";
-
-      if (i < remaining) {
-        pip.classList.add("filled");
-      } else {
-        pip.classList.add("used");
-      }
-
-      pipsEl.appendChild(pip);
+    if (String(remaining) !== previous) {
+      pillEl.classList.remove("bump");
+      void pillEl.offsetWidth;
+      pillEl.classList.add("bump");
     }
   },
 
-  bumpElement(element, className = "bump") {
-    if (!element) return;
-
-    element.classList.remove(className);
-    void element.offsetWidth;
-    element.classList.add(className);
-  },
-
-  spawnParticles(cellX, cellY, amount) {
+  spawnParticles(cellX, cellY, amount, forcedColor) {
     const cellSize = this.getCellSize();
     const cx = this.getCellCenterX(cellX);
     const cy = this.getCellCenterY(cellY);
@@ -785,7 +839,7 @@ const Game = {
         size: cellSize * (0.03 + Math.random() * 0.05),
         life: 1,
         decay: 0.018 + Math.random() * 0.02,
-        color: Math.random() > 0.45 ? "#60a5fa" : "#22c55e"
+        color: forcedColor || (Math.random() > 0.45 ? "#6ea8ff" : "#4ade80")
       });
     }
   },
@@ -818,9 +872,8 @@ const Game = {
     this.shockwaves.push({
       x,
       y,
-      start: performance.now(),
-      maxRadius,
-      rgb: "255,255,255"
+      start: this.gameNow,
+      maxRadius
     });
   },
 
@@ -836,6 +889,13 @@ const Game = {
     return y * this.getCellSize() + this.getCellSize() / 2;
   },
 
+  easeOutBack(t) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  },
+
   roundRectPath(x, y, w, h, r) {
     const radius = Math.min(r, w / 2, h / 2);
 
@@ -848,45 +908,95 @@ const Game = {
     this.ctx.closePath();
   },
 
-  draw(now) {
+  drawGlow(x, y, radius, rgb, alpha) {
     const ctx = this.ctx;
+
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, `rgba(${rgb}, ${alpha})`);
+    gradient.addColorStop(1, `rgba(${rgb}, 0)`);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    ctx.restore();
+  },
+
+  draw() {
+    const ctx = this.ctx;
+    const now = this.gameNow;
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    this.drawAmbientLight();
     this.drawBoard();
     this.drawPathLine();
-    this.drawCells(now);
-    this.drawClearFlashes(now);
+    this.drawCells();
+    this.drawLineFlashes(now);
     this.drawShockwaves(now);
-    this.drawPopAnims(now);
-    this.drawInvalidFlashes(now);
+    this.drawCancelAnims(now);
     this.drawParticles();
     this.drawDebris();
+    this.drawPointerLight();
+  },
+
+  drawAmbientLight() {
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    const t = this.gameNow / 1000;
+
+    this.drawGlow(
+      w * 0.5 + Math.sin(t * 0.5) * w * 0.28,
+      h * 0.28 + Math.cos(t * 0.35) * h * 0.16,
+      w * 0.55,
+      "47,107,255",
+      0.05
+    );
+
+    this.drawGlow(
+      w * 0.5 + Math.cos(t * 0.42) * w * 0.3,
+      h * 0.75 + Math.sin(t * 0.5) * h * 0.14,
+      w * 0.5,
+      "124,77,255",
+      0.04
+    );
+  },
+
+  drawPointerLight() {
+    if (!this.pointer.active || this.gameOver) return;
+
+    this.drawGlow(
+      this.pointer.x,
+      this.pointer.y,
+      this.getCellSize() * 2.4,
+      "74,222,128",
+      0.10
+    );
   },
 
   drawBoard() {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    ctx.fillStyle = "rgba(2, 6, 23, 0.24)";
+    ctx.fillStyle = "rgba(4, 10, 26, 0.25)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
         const px = x * cellSize;
         const py = y * cellSize;
-        const pad = cellSize * 0.032;
+        const pad = cellSize * 0.035;
         const box = cellSize - pad * 2;
-        const radius = cellSize * 0.12;
+        const radius = cellSize * 0.16;
 
         ctx.save();
 
-        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+        ctx.fillStyle = "rgba(13, 24, 48, 0.95)";
         this.roundRectPath(px + pad, py + pad, box, box, radius);
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.055)";
-        ctx.lineWidth = Math.max(1, cellSize * 0.01);
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.07)";
+        ctx.lineWidth = Math.max(1, cellSize * 0.012);
         this.roundRectPath(px + pad, py + pad, box, box, radius);
         ctx.stroke();
 
@@ -895,9 +1005,21 @@ const Game = {
     }
   },
 
-  drawCells(now) {
+  drawCells() {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
+    const now = this.gameNow;
+
+    const keys = Object.keys(this.cellAnims);
+
+    for (const key of keys) {
+      const anim = this.cellAnims[key];
+      const duration = anim.type === "spawn" ? 420 : 260;
+
+      if (now - anim.start > duration) {
+        delete this.cellAnims[key];
+      }
+    }
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
@@ -905,63 +1027,103 @@ const Game = {
 
         if (value === 0) continue;
 
-        const px = x * cellSize;
-        const py = y * cellSize;
-        const pad = cellSize * 0.032;
-        const box = cellSize - pad * 2;
-        const radius = cellSize * 0.12;
+        const anim = this.cellAnims[`${x},${y}`];
+        let scale = 1;
+        let alpha = 1;
 
-        ctx.save();
+        if (anim) {
+          const age = Math.min(1, (now - anim.start) / (anim.type === "spawn" ? 420 : 260));
 
-        if (value === 1) {
-          ctx.globalAlpha = 0.52;
-
-          ctx.shadowColor = "rgba(34, 197, 94, 0.28)";
-          ctx.shadowBlur = cellSize * 0.08;
-
-          const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-          gradient.addColorStop(0, "#4ade80");
-          gradient.addColorStop(1, "#16a34a");
-
-          ctx.fillStyle = gradient;
-        } else if (value === 2) {
-          ctx.shadowColor = "rgba(59, 130, 246, 0.22)";
-          ctx.shadowBlur = cellSize * 0.08;
-
-          const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-          gradient.addColorStop(0, "#60a5fa");
-          gradient.addColorStop(1, "#2563eb");
-
-          ctx.fillStyle = gradient;
-        } else {
-          ctx.shadowColor = "rgba(148, 163, 184, 0.12)";
-          ctx.shadowBlur = cellSize * 0.05;
-
-          const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-          gradient.addColorStop(0, "#64748b");
-          gradient.addColorStop(1, "#475569");
-
-          ctx.fillStyle = gradient;
+          if (anim.type === "spawn") {
+            scale = this.easeOutBack(age);
+          } else if (anim.type === "place") {
+            scale = 0.7 + 0.3 * this.easeOutBack(age);
+          } else if (anim.type === "validate") {
+            scale = 1 + 0.16 * Math.sin(age * Math.PI);
+          }
         }
 
-        this.roundRectPath(px + pad, py + pad, box, box, radius);
-        ctx.fill();
+        if (value === 1) alpha = 0.6;
 
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = "rgba(255, 255, 255, 0.09)";
-        this.roundRectPath(
-          px + pad + box * 0.10,
-          py + pad + box * 0.08,
-          box * 0.80,
-          box * 0.16,
-          radius * 0.7
-        );
-        ctx.fill();
-
-        ctx.restore();
+        this.drawCellAt(x, y, value, scale, alpha);
       }
     }
+  },
+
+  drawCellAt(x, y, value, scale, alpha) {
+    const cellSize = this.getCellSize();
+    const ctx = this.ctx;
+
+    const px = x * cellSize;
+    const py = y * cellSize;
+    const pad = cellSize * 0.035;
+    const box = cellSize - pad * 2;
+    const radius = cellSize * 0.16;
+    const center = cellSize / 2;
+
+    ctx.save();
+
+    ctx.globalAlpha = alpha;
+
+    ctx.translate(px + center, py + center);
+    ctx.scale(scale, scale);
+    ctx.translate(-(px + center), -(py + center));
+
+    if (value === 1) {
+      ctx.shadowColor = "rgba(34, 197, 94, 0.35)";
+      ctx.shadowBlur = cellSize * 0.12;
+
+      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+      gradient.addColorStop(0, "#6ee7a0");
+      gradient.addColorStop(1, "#16a34a");
+
+      ctx.fillStyle = gradient;
+    } else if (value === 2) {
+      ctx.shadowColor = "rgba(47, 107, 255, 0.3)";
+      ctx.shadowBlur = cellSize * 0.12;
+
+      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+      gradient.addColorStop(0, "#8ab6ff");
+      gradient.addColorStop(1, "#2f6bff");
+
+      ctx.fillStyle = gradient;
+    } else {
+      ctx.shadowColor = "rgba(124, 77, 255, 0.3)";
+      ctx.shadowBlur = cellSize * 0.10;
+
+      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+      gradient.addColorStop(0, "#b39dff");
+      gradient.addColorStop(1, "#7c4dff");
+
+      ctx.fillStyle = gradient;
+    }
+
+    this.roundRectPath(px + pad, py + pad, box, box, radius);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+    this.roundRectPath(
+      px + pad + box * 0.10,
+      py + pad + box * 0.08,
+      box * 0.80,
+      box * 0.20,
+      radius * 0.7
+    );
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+    this.roundRectPath(
+      px + pad + box * 0.10,
+      py + pad + box * 0.74,
+      box * 0.80,
+      box * 0.16,
+      radius * 0.7
+    );
+    ctx.fill();
+
+    ctx.restore();
   },
 
   drawPathLine() {
@@ -974,8 +1136,8 @@ const Game = {
 
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(34, 197, 94, 0.12)";
-    ctx.lineWidth = cellSize * 0.11;
+    ctx.strokeStyle = "rgba(74, 222, 128, 0.16)";
+    ctx.lineWidth = cellSize * 0.12;
 
     ctx.beginPath();
     ctx.moveTo(this.getCellCenterX(this.path[0].x), this.getCellCenterY(this.path[0].y));
@@ -989,15 +1151,15 @@ const Game = {
     ctx.restore();
   },
 
-  drawClearFlashes(now) {
+  drawLineFlashes(now) {
     const ctx = this.ctx;
     const cellSize = this.getCellSize();
 
-    this.clearFlashes = this.clearFlashes.filter(item => now - item.start < 320);
+    this.lineFlashes = this.lineFlashes.filter(item => now - item.start < 340);
 
-    for (const flash of this.clearFlashes) {
-      const age = (now - flash.start) / 320;
-      const alpha = 0.24 * (1 - age);
+    for (const flash of this.lineFlashes) {
+      const age = (now - flash.start) / 340;
+      const alpha = 0.26 * (1 - age);
 
       ctx.save();
 
@@ -1016,17 +1178,17 @@ const Game = {
   drawShockwaves(now) {
     const ctx = this.ctx;
 
-    this.shockwaves = this.shockwaves.filter(item => now - item.start < 450);
+    this.shockwaves = this.shockwaves.filter(item => now - item.start < 460);
 
     for (const wave of this.shockwaves) {
-      const age = (now - wave.start) / 450;
+      const age = (now - wave.start) / 460;
       const radius = wave.maxRadius * age;
-      const alpha = 0.28 * (1 - age);
+      const alpha = 0.3 * (1 - age);
 
       ctx.save();
 
-      ctx.strokeStyle = `rgba(${wave.rgb}, ${alpha})`;
-      ctx.lineWidth = Math.max(1, this.getCellSize() * 0.045 * (1 - age));
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.lineWidth = Math.max(1, this.getCellSize() * 0.05 * (1 - age));
 
       ctx.beginPath();
       ctx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
@@ -1036,66 +1198,35 @@ const Game = {
     }
   },
 
-  drawPopAnims(now) {
+  drawCancelAnims(now) {
     const ctx = this.ctx;
     const cellSize = this.getCellSize();
 
-    this.popAnims = this.popAnims.filter(item => now - item.start < 260);
+    this.cancelAnims = this.cancelAnims.filter(item => now - item.start < 260);
 
-    for (const anim of this.popAnims) {
+    for (const anim of this.cancelAnims) {
       const age = (now - anim.start) / 260;
+      const scale = 1 - age * 0.45;
+      const alpha = 0.5 * (1 - age);
 
       const px = anim.x * cellSize;
       const py = anim.y * cellSize;
-      const pad = cellSize * 0.032;
+      const pad = cellSize * 0.035;
       const box = cellSize - pad * 2;
-      const radius = cellSize * 0.12;
-
-      const scale = 0.88 + Math.sin(age * Math.PI) * 0.14;
+      const radius = cellSize * 0.16;
       const center = cellSize / 2;
-      const alpha = 0.24 * (1 - age);
 
       ctx.save();
+
+      ctx.globalAlpha = alpha;
 
       ctx.translate(px + center, py + center);
       ctx.scale(scale, scale);
       ctx.translate(-(px + center), -(py + center));
 
-      ctx.fillStyle = `rgba(${anim.rgb}, ${alpha})`;
-
+      ctx.fillStyle = "#ef4444";
       this.roundRectPath(px + pad, py + pad, box, box, radius);
       ctx.fill();
-
-      ctx.restore();
-    }
-  },
-
-  drawInvalidFlashes(now) {
-    const ctx = this.ctx;
-    const cellSize = this.getCellSize();
-
-    this.invalidFlashes = this.invalidFlashes.filter(item => now - item.start < 220);
-
-    for (const flash of this.invalidFlashes) {
-      const age = (now - flash.start) / 220;
-      const alpha = 0.22 * (1 - age);
-
-      const px = flash.x * cellSize;
-      const py = flash.y * cellSize;
-      const pad = cellSize * 0.032;
-      const box = cellSize - pad * 2;
-      const radius = cellSize * 0.12;
-
-      ctx.save();
-
-      ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
-      this.roundRectPath(px + pad, py + pad, box, box, radius);
-      ctx.fill();
-
-      ctx.strokeStyle = `rgba(239, 68, 68, ${alpha + 0.10})`;
-      ctx.lineWidth = Math.max(2, cellSize * 0.03);
-      this.roundRectPath(px + pad, py + pad, box, box, radius);
-      ctx.stroke();
 
       ctx.restore();
     }
@@ -1107,10 +1238,10 @@ const Game = {
     this.particles = this.particles.filter(p => p.life > 0);
 
     for (const p of this.particles) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += this.getCellSize() * 0.004;
-      p.life -= p.decay;
+      p.x += p.vx * this.timeScale;
+      p.y += p.vy * this.timeScale;
+      p.vy += this.getCellSize() * 0.004 * this.timeScale;
+      p.life -= p.decay * this.timeScale;
 
       if (p.life <= 0) continue;
 
@@ -1133,11 +1264,11 @@ const Game = {
     this.debris = this.debris.filter(p => p.life > 0);
 
     for (const p of this.debris) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += this.getCellSize() * 0.005;
-      p.rotation += p.vr;
-      p.life -= p.decay;
+      p.x += p.vx * this.timeScale;
+      p.y += p.vy * this.timeScale;
+      p.vy += this.getCellSize() * 0.005 * this.timeScale;
+      p.rotation += p.vr * this.timeScale;
+      p.life -= p.decay * this.timeScale;
 
       if (p.life <= 0) continue;
 
@@ -1166,11 +1297,7 @@ const Game = {
     this.lastInvalidKey = key;
     this.lastInvalidTime = now;
 
-    this.invalidFlashes.push({
-      x,
-      y,
-      start: now
-    });
+    this.spawnDebris(x, y, "#ef4444", 1);
 
     GameAudio.playError();
     Haptics.vibrate(18);
