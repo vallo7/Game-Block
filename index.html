@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ink Blast</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #020617;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 10px 14px;
+      min-width: 88px;
+      text-align: center;
+    }
+
+    .stat .label {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .stat .value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    canvas {
+      width: min(92vw, 480px);
+      height: auto;
+      aspect-ratio: 1;
+      background: #020617;
+      border: 2px solid #1e293b;
+      border-radius: 16px;
+      touch-action: none;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      width: min(92vw, 480px);
+    }
+
+    button {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #undoBtn {
+      background: #334155;
+      color: white;
+    }
+
+    #validateBtn {
+      background: #22c55e;
+      color: #052e16;
+    }
+
+    #restartBtn {
+      background: #ef4444;
+      color: white;
+    }
+
+    .help {
+      margin-top: 14px;
+      color: #94a3b8;
+      font-size: 13px;
+      text-align: center;
+      max-width: 92vw;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ink Blast</h1>
+  <div class="subtitle">
+    Dessine une forme connectée de 1 à 6 cases, puis valide.
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Score</div>
+      <div class="value" id="score">0</div>
+    </div>
+
+    <div class="stat">
+      <div class="label">Encre</div>
+      <div class="value" id="ink">6</div>
+    </div>
+
+    <div class="stat">
+      <div class="label">Tour</div>
+      <div class="value" id="turn">1</div>
+    </div>
+  </div>
+
+  <canvas id="game" width="480" height="480"></canvas>
+
+  <div class="buttons">
+    <button id="undoBtn">Undo</button>
+    <button id="validateBtn">Valider</button>
+    <button id="restartBtn">Rejouer</button>
+  </div>
+
+  <div class="help">
+    Règles simples :<br />
+    - 6 points d’encre par tour<br />
+    - 1 case dessinée = 1 point d’encre<br />
+    - la forme doit être connectée<br />
+    - les lignes et colonnes complètes sont supprimées<br />
+    - tous les 5 tours, 2 blocs neutres apparaissent
+  </div>
+
+  <script>
+    const SIZE = 8;
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    // 0 = vide
+    // 1 = en train de dessiner
+    // 2 = bloc joueur
+    // 3 = bloc neutre
+    let cells = [];
+    let path = [];
+    let ink = 6;
+    let score = 0;
+    let turn = 1;
+    let totalCleared = 0;
+    let pointerActive = false;
+
+    function resetGame() {
+      cells = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+      path = [];
+      ink = 6;
+      score = 0;
+      turn = 1;
+      totalCleared = 0;
+      updateHUD();
+      draw();
+    }
+
+    function updateHUD() {
+      document.getElementById("score").textContent = score;
+      document.getElementById("ink").textContent = ink;
+      document.getElementById("turn").textContent = turn;
+    }
+
+    function draw() {
+      const cellSize = canvas.width / SIZE;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const value = cells[y][x];
+
+          if (value === 0) {
+            ctx.fillStyle = "#0f172a";
+          } else if (value === 1) {
+            ctx.fillStyle = "#22c55e";
+          } else if (value === 2) {
+            ctx.fillStyle = "#3b82f6";
+          } else {
+            ctx.fillStyle = "#64748b";
+          }
+
+          const px = x * cellSize;
+          const py = y * cellSize;
+
+          ctx.beginPath();
+          ctx.roundRect(px + 2, py + 2, cellSize - 4, cellSize - 4, 8);
+          ctx.fill();
+        }
+      }
+    }
+
+    function getCellFromEvent(event) {
+      const rect = canvas.getBoundingClientRect();
+
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const canvasX = (event.clientX - rect.left) * scaleX;
+      const canvasY = (event.clientY - rect.top) * scaleY;
+
+      const cellSize = canvas.width / SIZE;
+
+      const x = Math.floor(canvasX / cellSize);
+      const y = Math.floor(canvasY / cellSize);
+
+      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) {
+        return null;
+      }
+
+      return { x, y };
+    }
+
+    function canAddCell(x, y) {
+      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return false;
+      if (cells[y][x] !== 0) return false;
+      if (ink <= 0) return false;
+      if (path.length >= 6) return false;
+
+      if (path.length === 0) return true;
+
+      const last = path[path.length - 1];
+      const distance = Math.abs(last.x - x) + Math.abs(last.y - y);
+
+      return distance === 1;
+    }
+
+    function tryAddCell(event) {
+      const cell = getCellFromEvent(event);
+      if (!cell) return;
+
+      const { x, y } = cell;
+
+      if (!canAddCell(x, y)) return;
+
+      cells[y][x] = 1;
+      path.push({ x, y });
+      ink -= 1;
+
+      updateHUD();
+      draw();
+    }
+
+    function undo() {
+      if (path.length === 0) return;
+
+      const last = path.pop();
+      cells[last.y][last.x] = 0;
+      ink += 1;
+
+      updateHUD();
+      draw();
+    }
+
+    function validateShape() {
+      if (path.length === 0) return;
+
+      for (const cell of path) {
+        cells[cell.y][cell.x] = 2;
+      }
+
+      path = [];
+
+      const rewardInk = applyLineAndColumnClearing();
+
+      turn += 1;
+
+      if (turn % 5 === 0) {
+        spawnNeutralBlocks(2);
+      }
+
+      ink = 6 + rewardInk;
+
+      updateHUD();
+      draw();
+
+      checkGameOver();
+    }
+
+    function applyLineAndColumnClearing() {
+      let fullRows = [];
+      let fullCols = [];
+
+      // Lignes complètes
+      for (let y = 0; y < SIZE; y++) {
+        const rowFull = cells[y].every(value => value !== 0);
+        if (rowFull) fullRows.push(y);
+      }
+
+      // Colonnes complètes
+      for (let x = 0; x < SIZE; x++) {
+        let colFull = true;
+
+        for (let y = 0; y < SIZE; y++) {
+          if (cells[y][x] === 0) {
+            colFull = false;
+            break;
+          }
+        }
+
+        if (colFull) fullCols.push(x);
+      }
+
+      const clearedCount = fullRows.length + fullCols.length;
+
+      if (clearedCount === 0) {
+        return 0;
+      }
+
+      // Supprimer les lignes
+      for (const y of fullRows) {
+        for (let x = 0; x < SIZE; x++) {
+          cells[y][x] = 0;
+        }
+      }
+
+      // Supprimer les colonnes
+      for (const x of fullCols) {
+        for (let y = 0; y < SIZE; y++) {
+          cells[y][x] = 0;
+        }
+      }
+
+      let rewardInk = clearedCount;
+
+      score += clearedCount * 100;
+
+      const beforeBonus = Math.floor(totalCleared / 2);
+      totalCleared += clearedCount;
+      const afterBonus = Math.floor(totalCleared / 2);
+
+      // Bonus toutes les 2 suppressions
+      if (afterBonus > beforeBonus) {
+        score += 200;
+        rewardInk += 1;
+      }
+
+      return rewardInk;
+    }
+
+    function spawnNeutralBlocks(count) {
+      const emptyCells = [];
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if (cells[y][x] === 0) {
+            emptyCells.push({ x, y });
+          }
+        }
+      }
+
+      for (let i = 0; i < count; i++) {
+        if (emptyCells.length === 0) break;
+
+        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+        const cell = emptyCells.splice(randomIndex, 1)[0];
+
+        cells[cell.y][cell.x] = 3;
+      }
+    }
+
+    function checkGameOver() {
+      const isGridFull = cells.every(row => row.every(value => value !== 0));
+
+      if (isGridFull) {
+        setTimeout(() => {
+          alert("Partie terminée ! Score final : " + score);
+          resetGame();
+        }, 100);
+      }
+    }
+
+    // Contrôles tactiles / souris
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      pointerActive = true;
+      canvas.setPointerCapture(event.pointerId);
+      tryAddCell(event);
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (!pointerActive) return;
+      event.preventDefault();
+      tryAddCell(event);
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      pointerActive = false;
+    });
+
+    canvas.addEventListener("pointercancel", () => {
+      pointerActive = false;
+    });
+
+    document.getElementById("undoBtn").addEventListener("click", undo);
+    document.getElementById("validateBtn").addEventListener("click", validateShape);
+    document.getElementById("restartBtn").addEventListener("click", resetGame);
+
+    resetGame();
+  </script>
+</body>
+</html>
