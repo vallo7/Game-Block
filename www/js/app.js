@@ -1,4 +1,6 @@
 const App = {
+  splashHidden: false,
+
   init() {
     Settings.load();
     Game.init();
@@ -6,10 +8,22 @@ const App = {
 
     this.bindUI();
     this.showMenu();
+    this.hideSplashLater();
 
     document.addEventListener("pointerdown", () => {
       GameAudio.unlock();
     }, { once: true });
+  },
+
+  hideSplashLater() {
+    setTimeout(() => {
+      const splash = document.getElementById("splash");
+
+      if (splash && !this.splashHidden) {
+        splash.classList.add("hidden");
+        this.splashHidden = true;
+      }
+    }, 1600);
   },
 
   bindUI() {
@@ -20,16 +34,19 @@ const App = {
 
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
+      GameAudio.playClick();
       Haptics.vibrate(6);
       this.openSettings();
     });
 
     settingsCloseBtn.addEventListener("click", () => {
+      GameAudio.playClick();
       Haptics.vibrate(5);
       this.closeSettings();
     });
 
     settingsHomeBtn.addEventListener("click", () => {
+      GameAudio.playClick();
       Haptics.vibrate(5);
       this.closeSettings();
       this.showMenu();
@@ -44,6 +61,7 @@ const App = {
     document.querySelectorAll("[data-setting]").forEach(button => {
       button.addEventListener("click", () => {
         GameAudio.unlock();
+        GameAudio.playClick();
         Haptics.vibrate(6);
 
         const key = button.dataset.setting;
