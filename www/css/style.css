@@ -47,21 +47,141 @@ body {
   overflow: hidden;
 }
 
+body.locked button,
+body.locked canvas {
+  pointer-events: none;
+}
+
 button {
   position: relative;
   overflow: hidden;
   font-family: inherit;
 }
 
+/* EFFET CANDY : brillance haut + ombre bas, sans chevaucher le contenu */
+
 button::after {
   content: "";
   position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 6%;
+  height: 13%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+
+button::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 7%;
+  height: 11%;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.mode-card::after {
+  left: 3%;
+  right: 3%;
+  top: 5%;
+  height: 11%;
+}
+
+.mode-card::before {
+  left: 3%;
+  right: 3%;
+  bottom: 6%;
+  height: 9%;
+}
+
+.ads-btn::after {
+  left: 6%;
+  right: 6%;
+  top: 8%;
+  height: 20%;
+}
+
+.ads-btn::before {
+  left: 6%;
+  right: 6%;
+  bottom: 9%;
+  height: 13%;
+}
+
+.setting-card::after {
   left: 10%;
   right: 10%;
-  top: 7%;
-  height: 24%;
+  top: 5%;
+  height: 9%;
+}
+
+.setting-card::before {
+  left: 10%;
+  right: 10%;
+  bottom: 6%;
+  height: 8%;
+}
+
+.top-btn::after,
+#settingsBtn::after {
+  left: 14%;
+  right: 14%;
+  top: 8%;
+  height: 14%;
+}
+
+.top-btn::before,
+#settingsBtn::before {
+  left: 14%;
+  right: 14%;
+  bottom: 9%;
+  height: 12%;
+}
+
+/* pas d'effet candy sur home et croix */
+
+.btn-home::after,
+.btn-home::before,
+.btn-close::after,
+.btn-close::before {
+  content: none;
+}
+
+/* effet candy sur les pop-ups */
+
+.settings-panel,
+.gameover-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-panel::after,
+.gameover-panel::after {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 3%;
+  height: 4%;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.settings-panel::before,
+.gameover-panel::before {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 3%;
+  height: 3%;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
   pointer-events: none;
 }
 
@@ -106,30 +226,34 @@ button::after {
   stroke-linejoin: round;
 }
 
-/* BURST */
+/* TREMBLEMENT DE CHANGEMENT DE COULEUR */
 
-#themeBurst {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  width: 24vmax;
-  height: 24vmax;
-  margin: -12vmax 0 0 -12vmax;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 90;
-  transform: scale(0);
-  opacity: 0;
+#gameScreen.quake {
+  animation: quake 700ms ease;
 }
 
-#themeBurst.play {
-  animation: burst 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+#gameScreen.quake .game-top,
+#gameScreen.quake .board-shell,
+#gameScreen.quake .available-pill,
+#gameScreen.quake .current-score {
+  animation: wobble 700ms ease;
 }
 
-@keyframes burst {
-  0% { transform: scale(0); opacity: 1; }
-  70% { opacity: 1; }
-  100% { transform: scale(14); opacity: 0; }
+@keyframes quake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  10% { transform: translate(-7px, 3px) rotate(-0.7deg); }
+  25% { transform: translate(7px, -3px) rotate(0.7deg); }
+  40% { transform: translate(-6px, -2px) rotate(-0.5deg); }
+  55% { transform: translate(6px, 2px) rotate(0.5deg); }
+  70% { transform: translate(-4px, 1px) rotate(-0.3deg); }
+  85% { transform: translate(4px, -1px) rotate(0.3deg); }
+}
+
+@keyframes wobble {
+  0%, 100% { transform: scale(1) rotate(0); }
+  20% { transform: scale(1.04) rotate(0.6deg); }
+  45% { transform: scale(0.98) rotate(-0.6deg); }
+  70% { transform: scale(1.02) rotate(0); }
 }
 
 /* SPLASH */
@@ -705,7 +829,7 @@ canvas {
 }
 
 .ring-fg.drain {
-  animation: ringDrain 5s linear forwards;
+  animation: ringDrain 10s linear forwards;
 }
 
 @keyframes ringDrain {
