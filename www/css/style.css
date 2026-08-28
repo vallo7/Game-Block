@@ -47,6 +47,34 @@ body {
   overflow: hidden;
 }
 
+button {
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+button::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 7%;
+  height: 24%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
+.btn-pop {
+  animation: btnPop 280ms var(--spring);
+}
+
+@keyframes btnPop {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
 .screen {
   position: absolute;
   inset: 0;
