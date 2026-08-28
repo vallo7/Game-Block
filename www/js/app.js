@@ -94,7 +94,10 @@ const App = {
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
       GameAudio.playClick();
-      this.openSettings();
+
+      setTimeout(() => {
+        this.openSettings();
+      }, 160);
     });
 
     settingsCloseBtn.addEventListener("click", () => {
@@ -104,8 +107,11 @@ const App = {
 
     settingsHomeBtn.addEventListener("click", () => {
       GameAudio.playClick();
-      this.closeSettings();
-      this.showMenu();
+
+      setTimeout(() => {
+        this.closeSettings();
+        this.showMenu();
+      }, 200);
     });
 
     settingsOverlay.addEventListener("click", (event) => {
@@ -120,7 +126,10 @@ const App = {
         GameAudio.playClick();
 
         const key = button.dataset.setting;
-        Settings.toggle(key);
+
+        setTimeout(() => {
+          Settings.toggle(key);
+        }, 120);
       });
     });
   },
