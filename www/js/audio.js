@@ -89,6 +89,14 @@ const GameAudio = {
     oscillator.stop(now + duration + 0.03);
   },
 
+  playClick() {
+    this.playTone(540, {
+      duration: 0.035,
+      type: "triangle",
+      gain: 0.06
+    });
+  },
+
   playAdd(index) {
     const freq = 300 * Math.pow(1.05946, index);
     this.playTone(freq, {
@@ -120,6 +128,15 @@ const GameAudio = {
       type: "triangle",
       gain: 0.06,
       delay: 0.03
+    });
+  },
+
+  playCancel() {
+    this.playTone(190, {
+      duration: 0.10,
+      type: "triangle",
+      gain: 0.08,
+      slideTo: 110
     });
   },
 
@@ -187,8 +204,6 @@ const GameAudio = {
       osc.type = "sine";
       osc.frequency.value = freq;
       osc.detune.value = (index - 1) * 4;
-
-      let endpoint = this.musicGain;
 
       if (this.ctx.createStereoPanner) {
         const panner = this.ctx.createStereoPanner();
