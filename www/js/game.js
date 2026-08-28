@@ -32,6 +32,9 @@ const Game = {
 
   pointer: { x: 0, y: 0, active: false },
 
+  countdown: 0,
+  countdownTimer: null,
+
   cellAnims: {},
   cancelAnims: [],
   particles: [],
@@ -48,6 +51,9 @@ const Game = {
 
     this.best = Storage.getBest();
     this.displayedBest = this.best;
+
+    const bestEl = document.getElementById("bestScoreValue");
+    bestEl.textContent = this.best;
 
     this.bindEvents();
     this.resize();
@@ -78,6 +84,7 @@ const Game = {
 
   stop() {
     this.active = false;
+    this.stopCountdown();
     this.cancelPath(false);
   },
 
@@ -98,6 +105,8 @@ const Game = {
     this.gameOver = false;
     this.drawing = false;
     this.strokeStarted = false;
+
+    this.stopCountdown();
 
     this.cellAnims = {};
     this.cancelAnims = [];
@@ -182,11 +191,16 @@ const Game = {
       this.cancelPath(false);
     });
 
-    document.getElementById("restartBtn").addEventListener("click", () => {
-      GameAudio.unlock();
+    document.getElementById("gameoverHomeBtn").addEventListener("click", () => {
       GameAudio.playClick();
-      Haptics.vibrate(25);
-      this.reset();
+      this.stopCountdown();
+      App.showMenu();
+    });
+
+    document.getElementById("adsBtn").addEventListener("click", () => {
+      GameAudio.playClick();
+      this.stopCountdown();
+      this.revive();
     });
 
     window.addEventListener("resize", () => this.resize());
@@ -567,10 +581,6 @@ const Game = {
     GameAudio.playAdd(this.path.length);
     Haptics.vibrate(18);
 
-    if (this.path.length === this.requiredBlocks) {
-      Haptics.vibrate(25);
-    }
-
     this.updateHUD();
   },
 
@@ -584,7 +594,6 @@ const Game = {
     });
 
     GameAudio.playBack();
-    Haptics.vibrate(10);
 
     this.updateHUD();
   },
@@ -603,7 +612,7 @@ const Game = {
 
     if (animated) {
       GameAudio.playCancel();
-      Haptics.vibrate([20, 30, 20]);
+      Haptics.vibrate([30, 40, 30]);
     }
 
     this.updateHUD();
@@ -643,7 +652,6 @@ const Game = {
     });
 
     GameAudio.playPlace();
-    Haptics.vibrate(35);
 
     const result = this.processClears();
 
@@ -670,7 +678,7 @@ const Game = {
     Theme.shift();
 
     GameAudio.playColorShift();
-    Haptics.vibrate([60, 40, 120]);
+    Haptics.vibrate(600);
 
     this.spawnShockwave(
       this.canvas.width / 2,
@@ -801,7 +809,6 @@ const Game = {
     }
 
     GameAudio.playClear(count);
-    Haptics.vibrate(count > 1 ? [70, 50, 130] : [40, 50, 60]);
 
     const scoreEl = document.getElementById("currentScore");
     scoreEl.classList.remove("score-bump");
@@ -815,17 +822,13 @@ const Game = {
     this.score += points;
 
     if (this.score > this.best) {
-      const previousBest = this.best;
-
       this.best = this.score;
       Storage.saveBest(this.best);
 
-      if (this.best !== previousBest) {
-        const bestEl = document.getElementById("bestScoreValue");
-        bestEl.classList.remove("score-bump");
-        void bestEl.offsetWidth;
-        bestEl.classList.add("score-bump");
-      }
+      const bestEl = document.getElementById("bestScoreValue");
+      bestEl.classList.remove("score-bump");
+      void bestEl.offsetWidth;
+      bestEl.classList.add("score-bump");
     }
   },
 
@@ -841,11 +844,89 @@ const Game = {
       Storage.saveBest(this.best);
     }
 
-    document.getElementById("finalScoreValue").textContent = this.score;
-    document.getElementById("gameOverOverlay").classList.remove("hidden");
+    this.startGameOver();
+  },
+
+  startGameOver() {
+    const overlay = document.getElementById("gameOverOverlay");
+    const ring = document.getElementById("ringFg");
+    const countdownEl = document.getElementById("countdownValue");
 
     GameAudio.playGameOver();
-    Haptics.vibrate([70, 45, 80]);
+
+    overlay.classList.remove("hidden");
+
+    ring.classList.remove("drain");
+    void ring.offsetWidth;
+    ring.classList.add("drain");
+
+    this.countdown = 5;
+    countdownEl.textContent = this.countdown;
+
+    this.stopCountdown();
+
+    this.countdownTimer = setInterval(() => {
+      this.countdown -= 1;
+
+      if (this.countdown <= 0) {
+        this.stopCountdown();
+        App.showMenu();
+        return;
+      }
+
+      countdownEl.textContent = this.countdown;
+      countdownEl.classList.remove("tick");
+      void countdownEl.offsetWidth;
+      countdownEl.classList.add("tick");
+
+      GameAudio.playCountdown();
+    }, 1000);
+  },
+
+  stopCountdown() {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+  },
+
+  revive() {
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] === 3) {
+          this.cells[y][x] = 0;
+          this.spawnParticles(x, y, 6, Theme.current.light);
+          this.spawnDebris(x, y, Theme.current.dark, 2);
+        }
+      }
+    }
+
+    if (this.isGridFull()) {
+      const rows = this.shuffleArray([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 2);
+
+      for (const y of rows) {
+        for (let x = 0; x < this.SIZE; x++) {
+          this.spawnDebris(x, y, "#ffffff", 2);
+          this.cells[y][x] = 0;
+        }
+
+        this.lineFlashes.push({ type: "row", index: y, start: this.gameNow });
+      }
+    }
+
+    this.gameOver = false;
+    this.turnsSinceObstacle = 0;
+    this.timeScale = 0.5;
+
+    document.getElementById("gameOverOverlay").classList.add("hidden");
+
+    GameAudio.playClear(2);
+
+    this.updateHUD();
+  },
+
+  isGridFull() {
+    return this.cells.every(row => row.every(value => value !== 0));
   },
 
   updateHUD() {
