@@ -2,234 +2,494 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
   <title>Ink Blast</title>
 
   <style>
+    :root {
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, 0.92);
+      --line: rgba(148, 163, 184, 0.14);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --blue: #3b82f6;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.34);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
     }
 
     body {
-      background: #020617;
-      color: white;
+      background:
+        radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    .app {
+      min-height: 100svh;
       display: flex;
       flex-direction: column;
+      padding:
+        calc(14px + env(safe-area-inset-top))
+        14px
+        calc(16px + env(safe-area-inset-bottom));
+      gap: 14px;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
       align-items: center;
-      min-height: 100vh;
-      padding: 16px;
+      justify-content: space-between;
+      gap: 12px;
     }
 
-    h1 {
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .brand h1 {
       font-size: 28px;
-      margin-bottom: 8px;
+      line-height: 1;
+      letter-spacing: 0.4px;
     }
 
-    .subtitle {
-      color: #94a3b8;
-      font-size: 14px;
-      margin-bottom: 16px;
-      text-align: center;
+    .brand span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .icon-btn {
+      width: 46px;
+      height: 46px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: white;
+      border-radius: 14px;
+      font-size: 20px;
+      box-shadow: var(--shadow);
     }
 
     .stats {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: 1.2fr 1.3fr 0.8fr;
+      gap: 10px;
     }
 
-    .stat {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      padding: 10px 14px;
-      min-width: 88px;
-      text-align: center;
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      backdrop-filter: blur(12px);
     }
 
-    .stat .label {
+    .card .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 7px;
+    }
+
+    .card .value {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .card .sub {
+      margin-top: 6px;
+      color: var(--muted);
       font-size: 12px;
-      color: #94a3b8;
-      margin-bottom: 4px;
     }
 
-    .stat .value {
-      font-size: 18px;
-      font-weight: bold;
+    .ink-wrap {
+      min-height: 62px;
+    }
+
+    .pips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+      min-height: 26px;
+    }
+
+    .pip {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+    }
+
+    .pip.full {
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+      transform: scale(1.04);
+    }
+
+    .pip.bonus {
+      background: linear-gradient(180deg, #34d399, #059669);
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.35);
+    }
+
+    .board-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+      backdrop-filter: blur(12px);
+    }
+
+    .board-shell {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.08);
     }
 
     canvas {
-      width: min(92vw, 480px);
-      height: auto;
+      width: 100%;
       aspect-ratio: 1;
-      background: #020617;
-      border: 2px solid #1e293b;
-      border-radius: 16px;
+      display: block;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
-    .buttons {
-      display: flex;
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
       gap: 10px;
-      margin-top: 16px;
-      width: min(92vw, 480px);
     }
 
-    button {
-      flex: 1;
+    button.action {
       border: none;
-      border-radius: 12px;
-      padding: 14px 10px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
+      border-radius: 18px;
+      padding: 15px 16px;
+      font-size: 17px;
+      font-weight: 800;
+      color: white;
+      box-shadow: var(--shadow);
+      transition: transform 80ms ease, opacity 80ms ease, filter 80ms ease;
+    }
+
+    button.action:active:not(:disabled) {
+      transform: scale(0.975);
+    }
+
+    button.action:disabled {
+      opacity: 0.42;
+      filter: grayscale(0.4);
     }
 
     #undoBtn {
-      background: #334155;
-      color: white;
+      background: linear-gradient(180deg, #475569, #334155);
     }
 
     #validateBtn {
-      background: #22c55e;
-      color: #052e16;
+      background: linear-gradient(180deg, #22c55e, #15803d);
+      color: #04150a;
     }
 
-    #restartBtn {
-      background: #ef4444;
-      color: white;
-    }
-
-    .help {
-      margin-top: 14px;
-      color: #94a3b8;
+    .hint {
+      color: var(--muted);
       font-size: 13px;
+      line-height: 1.45;
       text-align: center;
-      max-width: 92vw;
-      line-height: 1.5;
+      padding-bottom: 2px;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(2, 6, 23, 0.68);
+      backdrop-filter: blur(10px);
+      z-index: 30;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-panel {
+      width: min(100%, 380px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .overlay-panel h2 {
+      font-size: 30px;
+      margin-bottom: 10px;
+    }
+
+    .overlay-panel p {
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .overlay-panel .final-score {
+      font-size: 42px;
+      font-weight: 900;
+      color: white;
+      margin: 10px 0 6px;
+    }
+
+    .overlay-panel button {
+      margin-top: 16px;
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 15px 18px;
+      font-size: 18px;
+      font-weight: 900;
+      color: #04150a;
+      background: linear-gradient(180deg, #22c55e, #15803d);
+      box-shadow: var(--shadow);
+    }
+
+    .shake {
+      animation: shake 220ms ease;
+    }
+
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+      100% { transform: translateX(0); }
     }
   </style>
 </head>
 <body>
-  <h1>Ink Blast</h1>
-  <div class="subtitle">
-    Dessine une forme connectée de 1 à 6 cases, puis valide.
-  </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="label">Score</div>
-      <div class="value" id="score">0</div>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Ink Blast</h1>
+        <span>Dessine, complète, survis</span>
+      </div>
+      <button id="soundBtn" class="icon-btn" aria-label="Activer ou couper le son">🔊</button>
     </div>
 
-    <div class="stat">
-      <div class="label">Encre</div>
-      <div class="value" id="ink">6</div>
+    <div class="stats">
+      <div class="card">
+        <div class="label">Score</div>
+        <div class="value" id="score">0</div>
+        <div class="sub" id="best">Meilleur : 0</div>
+      </div>
+
+      <div class="card ink-wrap" id="inkCard">
+        <div class="label">Encre</div>
+        <div class="pips" id="inkPips"></div>
+      </div>
+
+      <div class="card">
+        <div class="label">Tour</div>
+        <div class="value" id="turn">1</div>
+      </div>
     </div>
 
-    <div class="stat">
-      <div class="label">Tour</div>
-      <div class="value" id="turn">1</div>
+    <div class="board-card">
+      <div class="board-shell">
+        <canvas id="game"></canvas>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="undoBtn" class="action">Annuler</button>
+      <button id="validateBtn" class="action">Valider</button>
+    </div>
+
+    <div class="hint">
+      Dessine une forme connectée de 1 à 6 cases. Vert = valide, rouge = invalide.<br />
+      Les lignes et colonnes complètes explosent. Tous les 5 tours, 2 blocs neutres apparaissent.
     </div>
   </div>
 
-  <canvas id="game" width="480" height="480"></canvas>
-
-  <div class="buttons">
-    <button id="undoBtn">Undo</button>
-    <button id="validateBtn">Valider</button>
-    <button id="restartBtn">Rejouer</button>
-  </div>
-
-  <div class="help">
-    Règles simples :<br />
-    - 6 points d’encre par tour<br />
-    - 1 case dessinée = 1 point d’encre<br />
-    - la forme doit être connectée<br />
-    - les lignes et colonnes complètes sont supprimées<br />
-    - tous les 5 tours, 2 blocs neutres apparaissent
+  <div id="overlay" class="overlay hidden">
+    <div class="overlay-panel">
+      <h2>Partie terminée</h2>
+      <p>Score final</p>
+      <div class="final-score" id="finalScore">0</div>
+      <p id="finalBest">Meilleur score : 0</p>
+      <button id="restartBtn">Rejouer</button>
+    </div>
   </div>
 
   <script>
     const SIZE = 8;
+    const BASE_INK = 6;
+    const MAX_SHAPE = 6;
+
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
-    // 0 = vide
-    // 1 = en train de dessiner
-    // 2 = bloc joueur
-    // 3 = bloc neutre
+    const scoreEl = document.getElementById("score");
+    const bestEl = document.getElementById("best");
+    const turnEl = document.getElementById("turn");
+    const inkPipsEl = document.getElementById("inkPips");
+    const inkCard = document.getElementById("inkCard");
+    const undoBtn = document.getElementById("undoBtn");
+    const validateBtn = document.getElementById("validateBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const soundBtn = document.getElementById("soundBtn");
+    const overlay = document.getElementById("overlay");
+    const finalScoreEl = document.getElementById("finalScore");
+    const finalBestEl = document.getElementById("finalBest");
+
     let cells = [];
     let path = [];
-    let ink = 6;
+    let ink = BASE_INK;
     let score = 0;
+    let best = Number(localStorage.getItem("inkblast_best") || 0);
     let turn = 1;
     let totalCleared = 0;
+    let gameOver = false;
+
     let pointerActive = false;
+    let hoverCell = null;
+    let muted = false;
+
+    let lastInvalidKey = null;
+    let lastInvalidTime = 0;
+
+    let popAnims = [];
+    let invalidFlashes = [];
+    let particles = [];
+    let clearFlashes = [];
+    let floatingTexts = [];
+
+    let shakeStart = 0;
+    let shakeMagnitude = 0;
+
+    let audioCtx = null;
+    let masterGain = null;
 
     function resetGame() {
       cells = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
       path = [];
-      ink = 6;
+      ink = BASE_INK;
       score = 0;
       turn = 1;
       totalCleared = 0;
+      gameOver = false;
+
+      popAnims = [];
+      invalidFlashes = [];
+      particles = [];
+      clearFlashes = [];
+      floatingTexts = [];
+
+      hoverCell = null;
+      pointerActive = false;
+
+      overlay.classList.add("hidden");
       updateHUD();
-      draw();
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.max(window.devicePixelRatio || 1, 1);
+      const rect = canvas.getBoundingClientRect();
+      const size = Math.floor(rect.width * dpr);
+
+      canvas.width = size;
+      canvas.height = size;
     }
 
     function updateHUD() {
-      document.getElementById("score").textContent = score;
-      document.getElementById("ink").textContent = ink;
-      document.getElementById("turn").textContent = turn;
+      scoreEl.textContent = score;
+      bestEl.textContent = `Meilleur : ${best}`;
+      turnEl.textContent = turn;
+
+      renderInkPips();
+
+      undoBtn.disabled = path.length === 0 || gameOver;
+      validateBtn.disabled = path.length === 0 || gameOver;
+      soundBtn.textContent = muted ? "🔇" : "🔊";
     }
 
-    function draw() {
-      const cellSize = canvas.width / SIZE;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function renderInkPips() {
+      inkPipsEl.innerHTML = "";
 
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          const value = cells[y][x];
+      const maxShown = Math.max(BASE_INK, Math.min(12, ink));
 
-          if (value === 0) {
-            ctx.fillStyle = "#0f172a";
-          } else if (value === 1) {
-            ctx.fillStyle = "#22c55e";
-          } else if (value === 2) {
-            ctx.fillStyle = "#3b82f6";
-          } else {
-            ctx.fillStyle = "#64748b";
+      for (let i = 0; i < maxShown; i++) {
+        const pip = document.createElement("div");
+        pip.className = "pip";
+
+        if (i < ink) {
+          pip.classList.add("full");
+          if (i >= BASE_INK) {
+            pip.classList.add("bonus");
           }
-
-          const px = x * cellSize;
-          const py = y * cellSize;
-
-          ctx.beginPath();
-          ctx.roundRect(px + 2, py + 2, cellSize - 4, cellSize - 4, 8);
-          ctx.fill();
         }
+
+        inkPipsEl.appendChild(pip);
       }
+    }
+
+    function saveBestIfNeeded() {
+      if (score > best) {
+        best = score;
+        localStorage.setItem("inkblast_best", String(best));
+      }
+    }
+
+    function roundRectPath(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
     }
 
     function getCellFromEvent(event) {
       const rect = canvas.getBoundingClientRect();
 
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      const canvasX = (event.clientX - rect.left) * scaleX;
-      const canvasY = (event.clientY - rect.top) * scaleY;
-
-      const cellSize = canvas.width / SIZE;
-
-      const x = Math.floor(canvasX / cellSize);
-      const y = Math.floor(canvasY / cellSize);
+      const x = Math.floor(((event.clientX - rect.left) / rect.width) * SIZE);
+      const y = Math.floor(((event.clientY - rect.top) / rect.height) * SIZE);
 
       if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) {
         return null;
@@ -239,56 +499,110 @@
     }
 
     function canAddCell(x, y) {
+      if (gameOver) return false;
       if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return false;
       if (cells[y][x] !== 0) return false;
       if (ink <= 0) return false;
-      if (path.length >= 6) return false;
+      if (path.length >= MAX_SHAPE) return false;
 
       if (path.length === 0) return true;
 
       const last = path[path.length - 1];
-      const distance = Math.abs(last.x - x) + Math.abs(last.y - y);
-
-      return distance === 1;
+      return Math.abs(last.x - x) + Math.abs(last.y - y) === 1;
     }
 
     function tryAddCell(event) {
       const cell = getCellFromEvent(event);
       if (!cell) return;
 
-      const { x, y } = cell;
+      hoverCell = cell;
 
-      if (!canAddCell(x, y)) return;
+      const key = `${cell.x},${cell.y}`;
+      const now = performance.now();
 
-      cells[y][x] = 1;
-      path.push({ x, y });
-      ink -= 1;
+      if (cells[cell.y][cell.x] === 1) {
+        return;
+      }
 
-      updateHUD();
-      draw();
+      if (canAddCell(cell.x, cell.y)) {
+        lastInvalidKey = null;
+
+        cells[cell.y][cell.x] = 1;
+        path.push({ x: cell.x, y: cell.y });
+        ink -= 1;
+
+        popAnims.push({
+          x: cell.x,
+          y: cell.y,
+          start: now,
+          color: "rgba(34, 197, 94, 0.32)"
+        });
+
+        playAdd(path.length);
+        haptic(8);
+        updateHUD();
+      } else {
+        if (lastInvalidKey === key && now - lastInvalidTime < 260) {
+          return;
+        }
+
+        lastInvalidKey = key;
+        lastInvalidTime = now;
+
+        invalidFlashes.push({
+          x: cell.x,
+          y: cell.y,
+          start: now
+        });
+
+        playError();
+        haptic(28);
+        flashInkCard();
+      }
+    }
+
+    function flashInkCard() {
+      inkCard.classList.remove("shake");
+      void inkCard.offsetWidth;
+      inkCard.classList.add("shake");
     }
 
     function undo() {
-      if (path.length === 0) return;
+      if (gameOver || path.length === 0) return;
 
       const last = path.pop();
       cells[last.y][last.x] = 0;
       ink += 1;
 
+      playUndo();
+      haptic(6);
       updateHUD();
-      draw();
     }
 
     function validateShape() {
-      if (path.length === 0) return;
+      if (gameOver || path.length === 0) return;
 
-      for (const cell of path) {
-        cells[cell.y][cell.x] = 2;
-      }
+      ensureAudio();
+      playValidate();
+      haptic(18);
 
+      const placed = [...path];
       path = [];
 
-      const rewardInk = applyLineAndColumnClearing();
+      const now = performance.now();
+
+      for (const cell of placed) {
+        cells[cell.y][cell.x] = 2;
+
+        popAnims.push({
+          x: cell.x,
+          y: cell.y,
+          start: now,
+          color: "rgba(59, 130, 246, 0.30)"
+        });
+      }
+
+      const result = processClears();
 
       turn += 1;
 
@@ -296,25 +610,21 @@
         spawnNeutralBlocks(2);
       }
 
-      ink = 6 + rewardInk;
+      ink = BASE_INK + result.reward;
 
       updateHUD();
-      draw();
-
       checkGameOver();
     }
 
-    function applyLineAndColumnClearing() {
-      let fullRows = [];
-      let fullCols = [];
+    function processClears() {
+      const fullRows = [];
+      const fullCols = [];
 
-      // Lignes complètes
       for (let y = 0; y < SIZE; y++) {
         const rowFull = cells[y].every(value => value !== 0);
         if (rowFull) fullRows.push(y);
       }
 
-      // Colonnes complètes
       for (let x = 0; x < SIZE; x++) {
         let colFull = true;
 
@@ -328,41 +638,77 @@
         if (colFull) fullCols.push(x);
       }
 
-      const clearedCount = fullRows.length + fullCols.length;
+      const count = fullRows.length + fullCols.length;
 
-      if (clearedCount === 0) {
-        return 0;
+      if (count === 0) {
+        return { count: 0, reward: 0 };
       }
 
-      // Supprimer les lignes
+      const now = performance.now();
+      const clearedKeys = new Set();
+
+      for (const y of fullRows) {
+        clearFlashes.push({ type: "row", index: y, start: now });
+
+        for (let x = 0; x < SIZE; x++) {
+          clearedKeys.add(`${x},${y}`);
+        }
+      }
+
+      for (const x of fullCols) {
+        clearFlashes.push({ type: "col", index: x, start: now });
+
+        for (let y = 0; y < SIZE; y++) {
+          clearedKeys.add(`${x},${y}`);
+        }
+      }
+
+      for (const key of clearedKeys) {
+        const [x, y] = key.split(",").map(Number);
+        spawnParticles(x, y, 14);
+      }
+
       for (const y of fullRows) {
         for (let x = 0; x < SIZE; x++) {
           cells[y][x] = 0;
         }
+
+        addFloatingText("+100", canvas.width / 2, getCellCenterY(y), "#f8fafc");
       }
 
-      // Supprimer les colonnes
       for (const x of fullCols) {
         for (let y = 0; y < SIZE; y++) {
           cells[y][x] = 0;
         }
+
+        addFloatingText("+100", getCellCenterX(x), canvas.height / 2, "#f8fafc");
       }
 
-      let rewardInk = clearedCount;
-
-      score += clearedCount * 100;
+      let reward = count;
+      score += count * 100;
 
       const beforeBonus = Math.floor(totalCleared / 2);
-      totalCleared += clearedCount;
+      totalCleared += count;
       const afterBonus = Math.floor(totalCleared / 2);
 
-      // Bonus toutes les 2 suppressions
       if (afterBonus > beforeBonus) {
         score += 200;
-        rewardInk += 1;
+        reward += 1;
+        addFloatingText("BONUS +200", canvas.width / 2, canvas.height / 2 - canvas.width * 0.08, "#f59e0b");
       }
 
-      return rewardInk;
+      playClear(count);
+      haptic(count > 1 ? [28, 35, 65] : 24);
+
+      if (count > 1) {
+        shakeStart = now;
+        shakeMagnitude = count > 2 ? 10 : 6;
+      }
+
+      saveBestIfNeeded();
+      updateHUD();
+
+      return { count, reward };
     }
 
     function spawnNeutralBlocks(count) {
@@ -383,31 +729,560 @@
         const cell = emptyCells.splice(randomIndex, 1)[0];
 
         cells[cell.y][cell.x] = 3;
+
+        popAnims.push({
+          x: cell.x,
+          y: cell.y,
+          start: performance.now(),
+          color: "rgba(148, 163, 184, 0.28)"
+        });
       }
     }
 
     function checkGameOver() {
       const isGridFull = cells.every(row => row.every(value => value !== 0));
 
-      if (isGridFull) {
-        setTimeout(() => {
-          alert("Partie terminée ! Score final : " + score);
-          resetGame();
-        }, 100);
+      if (!isGridFull) return;
+
+      gameOver = true;
+      saveBestIfNeeded();
+      updateHUD();
+
+      finalScoreEl.textContent = score;
+      finalBestEl.textContent = `Meilleur score : ${best}`;
+      overlay.classList.remove("hidden");
+
+      playGameOver();
+      haptic([70, 45, 80]);
+    }
+
+    function getCellSize() {
+      return canvas.width / SIZE;
+    }
+
+    function getCellCenterX(x) {
+      return x * getCellSize() + getCellSize() / 2;
+    }
+
+    function getCellCenterY(y) {
+      return y * getCellSize() + getCellSize() / 2;
+    }
+
+    function spawnParticles(cellX, cellY, amount) {
+      const cellSize = getCellSize();
+      const cx = getCellCenterX(cellX);
+      const cy = getCellCenterY(cellY);
+
+      for (let i = 0; i < amount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = cellSize * (0.05 + Math.random() * 0.14);
+
+        particles.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - cellSize * 0.03,
+          size: cellSize * (0.03 + Math.random() * 0.05),
+          life: 1,
+          decay: 0.018 + Math.random() * 0.02,
+          color: Math.random() > 0.45 ? "#60a5fa" : "#22c55e"
+        });
       }
     }
 
-    // Contrôles tactiles / souris
+    function addFloatingText(text, x, y, color) {
+      floatingTexts.push({
+        text,
+        x,
+        y,
+        color,
+        start: performance.now()
+      });
+    }
+
+    function draw(now) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+
+      const shakeAge = now - shakeStart;
+      if (shakeStart && shakeAge < 220) {
+        const power = 1 - shakeAge / 220;
+        const dx = (Math.random() - 0.5) * shakeMagnitude * power;
+        const dy = (Math.random() - 0.5) * shakeMagnitude * power;
+        ctx.translate(dx, dy);
+      }
+
+      drawBoard(now);
+      drawPathLine();
+      drawCellStates(now);
+      drawHoverGhost(now);
+      drawClearFlashes(now);
+      drawPopAnims(now);
+      drawInvalidFlashes(now);
+      drawParticles();
+      drawFloatingTexts(now);
+
+      ctx.restore();
+    }
+
+    function drawBoard(now) {
+      const cellSize = getCellSize();
+
+      ctx.fillStyle = "rgba(2, 6, 23, 0.35)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const px = x * cellSize;
+          const py = y * cellSize;
+          const pad = cellSize * 0.055;
+          const box = cellSize - pad * 2;
+          const radius = cellSize * 0.16;
+
+          ctx.save();
+
+          ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+          roundRectPath(px + pad, py + pad, box, box, radius);
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.07)";
+          ctx.lineWidth = Math.max(1, cellSize * 0.015);
+          roundRectPath(px + pad, py + pad, box, box, radius);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawCellStates(now) {
+      const cellSize = getCellSize();
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const value = cells[y][x];
+
+          if (value === 0) continue;
+
+          const px = x * cellSize;
+          const py = y * cellSize;
+          const pad = cellSize * 0.055;
+          const box = cellSize - pad * 2;
+          const radius = cellSize * 0.16;
+
+          ctx.save();
+
+          if (value === 1) {
+            ctx.shadowColor = "rgba(34, 197, 94, 0.42)";
+            ctx.shadowBlur = cellSize * 0.16;
+
+            const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+            gradient.addColorStop(0, "#4ade80");
+            gradient.addColorStop(1, "#16a34a");
+
+            ctx.fillStyle = gradient;
+          } else if (value === 2) {
+            ctx.shadowColor = "rgba(59, 130, 246, 0.28)";
+            ctx.shadowBlur = cellSize * 0.12;
+
+            const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+            gradient.addColorStop(0, "#60a5fa");
+            gradient.addColorStop(1, "#2563eb");
+
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.shadowColor = "rgba(148, 163, 184, 0.16)";
+            ctx.shadowBlur = cellSize * 0.08;
+
+            const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+            gradient.addColorStop(0, "#64748b");
+            gradient.addColorStop(1, "#475569");
+
+            ctx.fillStyle = gradient;
+          }
+
+          roundRectPath(px + pad, py + pad, box, box, radius);
+          ctx.fill();
+
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = "rgba(255, 255, 255, 0.10)";
+          roundRectPath(
+            px + pad + box * 0.10,
+            py + pad + box * 0.08,
+            box * 0.80,
+            box * 0.18,
+            radius * 0.7
+          );
+          ctx.fill();
+
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawPathLine() {
+      if (path.length < 2) return;
+
+      const cellSize = getCellSize();
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(34, 197, 94, 0.18)";
+      ctx.lineWidth = cellSize * 0.16;
+
+      ctx.beginPath();
+      ctx.moveTo(getCellCenterX(path[0].x), getCellCenterY(path[0].y));
+
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(getCellCenterX(path[i].x), getCellCenterY(path[i].y));
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawHoverGhost(now) {
+      if (!hoverCell || gameOver) return;
+
+      const { x, y } = hoverCell;
+
+      if (cells[y][x] !== 0) return;
+
+      const cellSize = getCellSize();
+      const px = x * cellSize;
+      const py = y * cellSize;
+      const pad = cellSize * 0.055;
+      const box = cellSize - pad * 2;
+      const radius = cellSize * 0.16;
+
+      const valid = canAddCell(x, y);
+      const pulse = 0.5 + Math.sin(now / 180) * 0.12;
+
+      ctx.save();
+
+      ctx.strokeStyle = valid
+        ? `rgba(34, 197, 94, ${0.34 + pulse * 0.18})`
+        : `rgba(239, 68, 68, ${0.24 + pulse * 0.10})`;
+
+      ctx.lineWidth = Math.max(2, cellSize * 0.045);
+
+      roundRectPath(px + pad, py + pad, box, box, radius);
+      ctx.stroke();
+
+      ctx.fillStyle = valid
+        ? "rgba(34, 197, 94, 0.08)"
+        : "rgba(239, 68, 68, 0.06)";
+
+      roundRectPath(px + pad, py + pad, box, box, radius);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawClearFlashes(now) {
+      const cellSize = getCellSize();
+
+      clearFlashes = clearFlashes.filter(item => now - item.start < 320);
+
+      for (const flash of clearFlashes) {
+        const age = (now - flash.start) / 320;
+        const alpha = 0.26 * (1 - age);
+
+        ctx.save();
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+
+        if (flash.type === "row") {
+          ctx.fillRect(0, flash.index * cellSize, canvas.width, cellSize);
+        } else {
+          ctx.fillRect(flash.index * cellSize, 0, cellSize, canvas.height);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function drawPopAnims(now) {
+      popAnims = popAnims.filter(item => now - item.start < 260);
+
+      for (const anim of popAnims) {
+        const age = (now - anim.start) / 260;
+        const cellSize = getCellSize();
+
+        const px = anim.x * cellSize;
+        const py = anim.y * cellSize;
+        const pad = cellSize * 0.055;
+        const box = cellSize - pad * 2;
+        const radius = cellSize * 0.16;
+
+        const scale = 0.86 + Math.sin(age * Math.PI) * 0.16;
+        const center = cellSize / 2;
+
+        ctx.save();
+
+        ctx.translate(px + center, py + center);
+        ctx.scale(scale, scale);
+        ctx.translate(-(px + center), -(py + center));
+
+        ctx.fillStyle = anim.color.replace(/[\d.]+\)$/, `${0.30 * (1 - age)})`);
+
+        roundRectPath(px + pad, py + pad, box, box, radius);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    function drawInvalidFlashes(now) {
+      invalidFlashes = invalidFlashes.filter(item => now - item.start < 240);
+
+      for (const flash of invalidFlashes) {
+        const age = (now - flash.start) / 240;
+        const alpha = 0.28 * (1 - age);
+
+        const cellSize = getCellSize();
+        const px = flash.x * cellSize;
+        const py = flash.y * cellSize;
+        const pad = cellSize * 0.055;
+        const box = cellSize - pad * 2;
+        const radius = cellSize * 0.16;
+
+        ctx.save();
+
+        ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+        roundRectPath(px + pad, py + pad, box, box, radius);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(239, 68, 68, ${alpha + 0.12})`;
+        ctx.lineWidth = Math.max(2, cellSize * 0.04);
+        roundRectPath(px + pad, py + pad, box, box, radius);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      particles = particles.filter(p => p.life > 0);
+
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += getCellSize() * 0.004;
+        p.life -= p.decay;
+
+        if (p.life <= 0) continue;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(p.life, 0);
+        ctx.fillStyle = p.color;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    function drawFloatingTexts(now) {
+      floatingTexts = floatingTexts.filter(item => now - item.start < 900);
+
+      for (const item of floatingTexts) {
+        const age = (now - item.start) / 900;
+        const alpha = 1 - age;
+        const y = item.y - age * getCellSize() * 0.55;
+
+        ctx.save();
+
+        ctx.globalAlpha = Math.max(alpha, 0);
+        ctx.fillStyle = item.color;
+        ctx.font = `900 ${Math.floor(getCellSize() * 0.30)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+        ctx.shadowBlur = 12;
+
+        ctx.fillText(item.text, item.x, y);
+
+        ctx.restore();
+      }
+    }
+
+    function animate(now) {
+      draw(now);
+      requestAnimationFrame(animate);
+    }
+
+    function haptic(pattern) {
+      if (muted) return;
+
+      if (navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        audioCtx = new AudioContextClass();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.20;
+        masterGain.connect(audioCtx.destination);
+      }
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, options = {}) {
+      if (muted) return;
+
+      ensureAudio();
+
+      if (!audioCtx || !masterGain) return;
+
+      const {
+        duration = 0.08,
+        type = "sine",
+        gain = 0.18,
+        slideTo = null,
+        delay = 0
+      } = options;
+
+      const now = audioCtx.currentTime + delay;
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(freq, now);
+
+      if (slideTo) {
+        oscillator.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+      }
+
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(gain, now + 0.012);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(masterGain);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.03);
+    }
+
+    function playAdd(index) {
+      const freq = 280 * Math.pow(1.07, index);
+      playTone(freq, {
+        duration: 0.055,
+        type: "triangle",
+        gain: 0.16
+      });
+    }
+
+    function playError() {
+      playTone(110, {
+        duration: 0.11,
+        type: "square",
+        gain: 0.09,
+        slideTo: 65
+      });
+    }
+
+    function playUndo() {
+      playTone(230, {
+        duration: 0.05,
+        type: "triangle",
+        gain: 0.10,
+        slideTo: 180
+      });
+    }
+
+    function playValidate() {
+      playTone(320, {
+        duration: 0.08,
+        type: "sine",
+        gain: 0.16,
+        slideTo: 430
+      });
+
+      playTone(480, {
+        duration: 0.06,
+        type: "triangle",
+        gain: 0.08,
+        delay: 0.03
+      });
+    }
+
+    function playClear(count) {
+      const base = 392;
+      const notes = Math.min(count + 2, 5);
+
+      for (let i = 0; i < notes; i++) {
+        playTone(base * Math.pow(1.19, i), {
+          duration: 0.09,
+          type: "triangle",
+          gain: 0.20,
+          delay: i * 0.032
+        });
+      }
+
+      if (count > 1) {
+        playTone(base * 2, {
+          duration: 0.18,
+          type: "sine",
+          gain: 0.22,
+          delay: 0.12
+        });
+
+        playTone(base * 2.5, {
+          duration: 0.14,
+          type: "triangle",
+          gain: 0.12,
+          delay: 0.16
+        });
+      }
+    }
+
+    function playGameOver() {
+      playTone(220, {
+        duration: 0.22,
+        type: "sawtooth",
+        gain: 0.08,
+        slideTo: 70
+      });
+    }
+
     canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      ensureAudio();
+
+      if (gameOver) return;
+
       pointerActive = true;
       canvas.setPointerCapture(event.pointerId);
       tryAddCell(event);
     });
 
     canvas.addEventListener("pointermove", (event) => {
-      if (!pointerActive) return;
       event.preventDefault();
+
+      if (gameOver) return;
+
+      const cell = getCellFromEvent(event);
+      hoverCell = cell;
+
+      if (!pointerActive) return;
+
       tryAddCell(event);
     });
 
@@ -419,11 +1294,52 @@
       pointerActive = false;
     });
 
-    document.getElementById("undoBtn").addEventListener("click", undo);
-    document.getElementById("validateBtn").addEventListener("click", validateShape);
-    document.getElementById("restartBtn").addEventListener("click", resetGame);
+    canvas.addEventListener("pointerleave", () => {
+      hoverCell = null;
+    });
 
+    undoBtn.addEventListener("click", () => {
+      ensureAudio();
+      undo();
+    });
+
+    validateBtn.addEventListener("click", () => {
+      ensureAudio();
+      validateShape();
+    });
+
+    restartBtn.addEventListener("click", () => {
+      ensureAudio();
+      resetGame();
+    });
+
+    soundBtn.addEventListener("click", () => {
+      muted = !muted;
+
+      if (!muted) {
+        ensureAudio();
+        playTone(420, {
+          duration: 0.05,
+          type: "triangle",
+          gain: 0.12
+        });
+      }
+
+      updateHUD();
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("orientationchange", () => {
+      setTimeout(resizeCanvas, 120);
+    });
+
+    document.addEventListener("pointerdown", () => {
+      ensureAudio();
+    }, { once: true });
+
+    resizeCanvas();
     resetGame();
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>
