@@ -30,6 +30,10 @@ const Settings = {
     this.apply();
     this.updateUI();
 
+    if (key === "vibration" && this.data.vibration) {
+      Haptics.vibrate(300);
+    }
+
     if (key === "music" && this.data.music) {
       GameAudio.unlock();
     }
