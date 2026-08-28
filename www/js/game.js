@@ -15,6 +15,7 @@ const Game = {
   score: 0,
   displayedScore: 0,
   best: 0,
+  displayedBest: 0,
   turn: 1,
   totalCleared: 0,
 
@@ -46,6 +47,7 @@ const Game = {
     this.ctx = this.canvas.getContext("2d");
 
     this.best = Storage.getBest();
+    this.displayedBest = this.best;
 
     this.bindEvents();
     this.resize();
@@ -114,8 +116,7 @@ const Game = {
     document.getElementById("gameOverOverlay").classList.add("hidden");
     document.getElementById("comboBadge").classList.add("hidden");
 
-    const scoreEl = document.getElementById("currentScore");
-    scoreEl.textContent = "0";
+    document.getElementById("currentScore").textContent = "0";
 
     this.updateHUD();
   },
@@ -184,7 +185,7 @@ const Game = {
     document.getElementById("restartBtn").addEventListener("click", () => {
       GameAudio.unlock();
       GameAudio.playClick();
-      Haptics.vibrate(10);
+      Haptics.vibrate(25);
       this.reset();
     });
 
@@ -252,6 +253,17 @@ const Game = {
       scoreEl.textContent = this.displayedScore;
     }
 
+    const bestEl = document.getElementById("bestScoreValue");
+
+    if (this.displayedBest !== this.best) {
+      const diff = this.best - this.displayedBest;
+      const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.16));
+
+      this.displayedBest += diff > 0 ? step : -step;
+
+      bestEl.textContent = this.displayedBest;
+    }
+
     const badge = document.getElementById("comboBadge");
 
     if (!badge.classList.contains("hidden") && this.gameNow > this.comboUntil) {
@@ -260,12 +272,12 @@ const Game = {
   },
 
   getDifficulty() {
-    const turnFactor = Math.min(1, Math.max(0, (this.turn - 1) / 70));
-    const scoreFactor = Math.min(1, this.score / 12000);
+    const turnFactor = Math.min(1, Math.max(0, (this.turn - 1) / 45));
+    const scoreFactor = Math.min(1, this.score / 8000);
     const fill = this.getFillRatio();
-    const fillFactor = Math.min(1, Math.max(0, (fill - 0.45) / 0.4));
+    const fillFactor = Math.min(1, Math.max(0, (fill - 0.35) / 0.4));
 
-    return Math.min(1, turnFactor * 0.62 + scoreFactor * 0.24 + fillFactor * 0.14);
+    return Math.min(1, turnFactor * 0.66 + scoreFactor * 0.24 + fillFactor * 0.2);
   },
 
   getFillRatio() {
@@ -280,12 +292,16 @@ const Game = {
     return filled / (this.SIZE * this.SIZE);
   },
 
+  isGridEmpty() {
+    return this.cells.every(row => row.every(value => value === 0));
+  },
+
   generateRequiredBlocks() {
     const diff = this.getDifficulty();
     const fill = this.getFillRatio();
 
-    const low = [10, 18, 24, 24, 16, 8];
-    const high = [6, 10, 16, 22, 24, 22];
+    const low = [6, 14, 22, 26, 20, 12];
+    const high = [4, 8, 12, 20, 26, 30];
 
     const weights = low.map((value, index) => {
       return value + (high[index] - value) * diff;
@@ -344,7 +360,7 @@ const Game = {
 
   maybeSpawnObstacles() {
     const diff = this.getDifficulty();
-    const interval = Math.max(3, 5 - Math.floor(diff * 2));
+    const interval = Math.max(2, 4 - Math.floor(diff * 2));
 
     if (this.turnsSinceObstacle < interval) return;
 
@@ -352,7 +368,7 @@ const Game = {
 
     const fill = this.getFillRatio();
 
-    let count = 1 + Math.round(diff * 2);
+    let count = 1 + Math.round(diff * 3);
 
     if (fill > 0.78) count = Math.max(1, count - 1);
     if (fill < 0.22) count = Math.min(4, count + 1);
@@ -367,7 +383,7 @@ const Game = {
         type: "spawn"
       };
 
-      this.spawnParticles(cell.x, cell.y, 4, "#a78bfa");
+      this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
     });
   },
 
@@ -549,10 +565,10 @@ const Game = {
     };
 
     GameAudio.playAdd(this.path.length);
-    Haptics.vibrate(6);
+    Haptics.vibrate(18);
 
     if (this.path.length === this.requiredBlocks) {
-      Haptics.vibrate(10);
+      Haptics.vibrate(25);
     }
 
     this.updateHUD();
@@ -568,7 +584,7 @@ const Game = {
     });
 
     GameAudio.playBack();
-    Haptics.vibrate(4);
+    Haptics.vibrate(10);
 
     this.updateHUD();
   },
@@ -587,7 +603,7 @@ const Game = {
 
     if (animated) {
       GameAudio.playCancel();
-      Haptics.vibrate([12, 18, 12]);
+      Haptics.vibrate([20, 30, 20]);
     }
 
     this.updateHUD();
@@ -627,7 +643,7 @@ const Game = {
     });
 
     GameAudio.playPlace();
-    Haptics.vibrate(16);
+    Haptics.vibrate(35);
 
     const result = this.processClears();
 
@@ -635,6 +651,10 @@ const Game = {
     this.turnsSinceObstacle += 1;
 
     this.registerCombo(result ? result.count : 0);
+
+    if (this.isGridEmpty()) {
+      this.celebrateEmptyGrid();
+    }
 
     this.maybeSpawnObstacles();
     this.checkGameOver();
@@ -644,6 +664,27 @@ const Game = {
     } else {
       this.updateHUD();
     }
+  },
+
+  celebrateEmptyGrid() {
+    Theme.shift();
+
+    GameAudio.playColorShift();
+    Haptics.vibrate([60, 40, 120]);
+
+    this.spawnShockwave(
+      this.canvas.width / 2,
+      this.canvas.height / 2,
+      this.canvas.width * 0.55
+    );
+
+    for (let i = 0; i < 5; i++) {
+      const x = Math.floor(Math.random() * this.SIZE);
+      const y = Math.floor(Math.random() * this.SIZE);
+      this.spawnParticles(x, y, 6, "#ffffff");
+    }
+
+    this.timeScale = 0.4;
   },
 
   registerCombo(clearCount) {
@@ -715,7 +756,7 @@ const Game = {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
 
-      const color = value === 3 ? "#a78bfa" : "#6ea8ff";
+      const color = value === 3 ? Theme.current.dark : "#ffffff";
 
       this.spawnDebris(x, y, color, 3);
       this.spawnParticles(x, y, 8, null);
@@ -760,7 +801,7 @@ const Game = {
     }
 
     GameAudio.playClear(count);
-    Haptics.vibrate(count > 1 ? [28, 35, 65] : 24);
+    Haptics.vibrate(count > 1 ? [70, 50, 130] : [40, 50, 60]);
 
     const scoreEl = document.getElementById("currentScore");
     scoreEl.classList.remove("score-bump");
@@ -774,11 +815,18 @@ const Game = {
     this.score += points;
 
     if (this.score > this.best) {
+      const previousBest = this.best;
+
       this.best = this.score;
       Storage.saveBest(this.best);
-    }
 
-    document.getElementById("bestScoreValue").textContent = this.best;
+      if (this.best !== previousBest) {
+        const bestEl = document.getElementById("bestScoreValue");
+        bestEl.classList.remove("score-bump");
+        void bestEl.offsetWidth;
+        bestEl.classList.add("score-bump");
+      }
+    }
   },
 
   checkGameOver() {
@@ -801,7 +849,6 @@ const Game = {
   },
 
   updateHUD() {
-    document.getElementById("bestScoreValue").textContent = this.best;
     this.renderAvailableBlocks();
   },
 
@@ -839,7 +886,7 @@ const Game = {
         size: cellSize * (0.03 + Math.random() * 0.05),
         life: 1,
         decay: 0.018 + Math.random() * 0.02,
-        color: forcedColor || (Math.random() > 0.45 ? "#6ea8ff" : "#4ade80")
+        color: forcedColor || (Math.random() > 0.45 ? "#ffffff" : Theme.current.light)
       });
     }
   },
@@ -949,15 +996,15 @@ const Game = {
       w * 0.5 + Math.sin(t * 0.5) * w * 0.28,
       h * 0.28 + Math.cos(t * 0.35) * h * 0.16,
       w * 0.55,
-      "47,107,255",
-      0.05
+      Theme.rgb(Theme.current.light),
+      0.06
     );
 
     this.drawGlow(
       w * 0.5 + Math.cos(t * 0.42) * w * 0.3,
       h * 0.75 + Math.sin(t * 0.5) * h * 0.14,
       w * 0.5,
-      "124,77,255",
+      "255,255,255",
       0.04
     );
   },
@@ -969,8 +1016,8 @@ const Game = {
       this.pointer.x,
       this.pointer.y,
       this.getCellSize() * 2.4,
-      "74,222,128",
-      0.10
+      "255,255,255",
+      0.12
     );
   },
 
@@ -978,7 +1025,7 @@ const Game = {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    ctx.fillStyle = "rgba(4, 10, 26, 0.25)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     for (let y = 0; y < this.SIZE; y++) {
@@ -991,11 +1038,11 @@ const Game = {
 
         ctx.save();
 
-        ctx.fillStyle = "rgba(13, 24, 48, 0.95)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
         this.roundRectPath(px + pad, py + pad, box, box, radius);
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.07)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
         ctx.lineWidth = Math.max(1, cellSize * 0.012);
         this.roundRectPath(px + pad, py + pad, box, box, radius);
         ctx.stroke();
@@ -1007,7 +1054,6 @@ const Game = {
 
   drawCells() {
     const cellSize = this.getCellSize();
-    const ctx = this.ctx;
     const now = this.gameNow;
 
     const keys = Object.keys(this.cellAnims);
@@ -1043,7 +1089,7 @@ const Game = {
           }
         }
 
-        if (value === 1) alpha = 0.6;
+        if (value === 1) alpha = 0.55;
 
         this.drawCellAt(x, y, value, scale, alpha);
       }
@@ -1070,30 +1116,30 @@ const Game = {
     ctx.translate(-(px + center), -(py + center));
 
     if (value === 1) {
-      ctx.shadowColor = "rgba(34, 197, 94, 0.35)";
+      ctx.shadowColor = "rgba(255, 255, 255, 0.35)";
       ctx.shadowBlur = cellSize * 0.12;
 
       const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, "#6ee7a0");
-      gradient.addColorStop(1, "#16a34a");
+      gradient.addColorStop(0, "#ffffff");
+      gradient.addColorStop(1, "#dbe6f7");
 
       ctx.fillStyle = gradient;
     } else if (value === 2) {
-      ctx.shadowColor = "rgba(47, 107, 255, 0.3)";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
       ctx.shadowBlur = cellSize * 0.12;
 
       const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, "#8ab6ff");
-      gradient.addColorStop(1, "#2f6bff");
+      gradient.addColorStop(0, "#ffffff");
+      gradient.addColorStop(1, "#d9e4f5");
 
       ctx.fillStyle = gradient;
     } else {
-      ctx.shadowColor = "rgba(124, 77, 255, 0.3)";
-      ctx.shadowBlur = cellSize * 0.10;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+      ctx.shadowBlur = cellSize * 0.1;
 
       const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, "#b39dff");
-      gradient.addColorStop(1, "#7c4dff");
+      gradient.addColorStop(0, Theme.current.light);
+      gradient.addColorStop(1, Theme.current.dark);
 
       ctx.fillStyle = gradient;
     }
@@ -1103,7 +1149,7 @@ const Game = {
 
     ctx.shadowBlur = 0;
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
     this.roundRectPath(
       px + pad + box * 0.10,
       py + pad + box * 0.08,
@@ -1113,7 +1159,7 @@ const Game = {
     );
     ctx.fill();
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
     this.roundRectPath(
       px + pad + box * 0.10,
       py + pad + box * 0.74,
@@ -1136,7 +1182,7 @@ const Game = {
 
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(74, 222, 128, 0.16)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
     ctx.lineWidth = cellSize * 0.12;
 
     ctx.beginPath();
@@ -1159,7 +1205,7 @@ const Game = {
 
     for (const flash of this.lineFlashes) {
       const age = (now - flash.start) / 340;
-      const alpha = 0.26 * (1 - age);
+      const alpha = 0.28 * (1 - age);
 
       ctx.save();
 
@@ -1183,7 +1229,7 @@ const Game = {
     for (const wave of this.shockwaves) {
       const age = (now - wave.start) / 460;
       const radius = wave.maxRadius * age;
-      const alpha = 0.3 * (1 - age);
+      const alpha = 0.32 * (1 - age);
 
       ctx.save();
 
@@ -1300,6 +1346,6 @@ const Game = {
     this.spawnDebris(x, y, "#ef4444", 1);
 
     GameAudio.playError();
-    Haptics.vibrate(18);
+    Haptics.vibrate(45);
   }
 };
