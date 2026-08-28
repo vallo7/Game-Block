@@ -1,5 +1,6 @@
 const App = {
   splashHidden: false,
+  lastBackPress: 0,
 
   init() {
     Theme.init();
@@ -51,11 +52,19 @@ const App = {
       return;
     }
 
-    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
-      Capacitor.Plugins.App.exitApp();
-    } else {
-      window.history.back();
+    const now = Date.now();
+
+    if (this.lastBackPress && now - this.lastBackPress < 2000) {
+      if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+        Capacitor.Plugins.App.exitApp();
+      } else {
+        window.history.back();
+      }
+      return;
     }
+
+    this.lastBackPress = now;
+    Haptics.vibrate(10);
   },
 
   bindButtonPop() {
@@ -90,6 +99,7 @@ const App = {
     const settingsOverlay = document.getElementById("settingsOverlay");
     const settingsCloseBtn = document.getElementById("settingsCloseBtn");
     const settingsHomeBtn = document.getElementById("settingsHomeBtn");
+    const settingsRestartBtn = document.getElementById("settingsRestartBtn");
 
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
@@ -114,6 +124,15 @@ const App = {
       }, 200);
     });
 
+    settingsRestartBtn.addEventListener("click", () => {
+      GameAudio.playClick();
+
+      setTimeout(() => {
+        this.closeSettings();
+        Game.reset();
+      }, 200);
+    });
+
     settingsOverlay.addEventListener("click", (event) => {
       if (event.target === settingsOverlay) {
         this.closeSettings();
@@ -135,8 +154,6 @@ const App = {
   },
 
   showMenu() {
-    Theme.useMenuColor();
-
     document.getElementById("menuScreen").classList.add("active");
     document.getElementById("gameScreen").classList.remove("active");
 
@@ -144,7 +161,9 @@ const App = {
   },
 
   showGame() {
-    Theme.useMenuColor();
+    if (!Game.runActive) {
+      Theme.useMenuColor();
+    }
 
     document.getElementById("menuScreen").classList.remove("active");
     document.getElementById("gameScreen").classList.add("active");
