@@ -25,26 +25,32 @@ const Haptics = {
         (typeof pattern === "number" && pattern >= 40);
 
       if (isLong) {
-        HapticsPlugin.impact({ style: "HEAVY" });
-
-        setTimeout(() => {
-          HapticsPlugin.impact({ style: "HEAVY" });
-        }, 180);
-
-        setTimeout(() => {
-          HapticsPlugin.impact({ style: "HEAVY" });
-        }, 360);
-      } else if (isStrong) {
-        HapticsPlugin.impact({ style: "HEAVY" });
-      } else {
         HapticsPlugin.impact({ style: "MEDIUM" });
+
+        setTimeout(() => {
+          HapticsPlugin.impact({ style: "MEDIUM" });
+        }, 160);
+
+        setTimeout(() => {
+          HapticsPlugin.impact({ style: "MEDIUM" });
+        }, 320);
+      } else if (isStrong) {
+        HapticsPlugin.impact({ style: "MEDIUM" });
+      } else {
+        HapticsPlugin.impact({ style: "LIGHT" });
       }
 
       return;
     }
 
     if (navigator.vibrate) {
-      navigator.vibrate(pattern);
+      if (typeof pattern === "number" && pattern >= 300) {
+        navigator.vibrate([15, 30, 15, 30, 15]);
+      } else if (Array.isArray(pattern) || (typeof pattern === "number" && pattern >= 40)) {
+        navigator.vibrate(18);
+      } else {
+        navigator.vibrate(8);
+      }
     }
   }
 };
