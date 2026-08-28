@@ -136,14 +136,14 @@
     <!-- GAME -->
     <section id="gameScreen" class="screen">
       <div class="game-top">
-        <button id="settingsBtn" class="icon-btn" aria-label="Settings">
+        <button id="settingsBtn" class="top-btn" aria-label="Settings">
           <svg viewBox="0 0 24 24" class="svg-icon">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
 
-        <div class="best-score" aria-label="Best score">
+        <div class="best-score top-btn" aria-label="Best score">
           <span class="best-icon">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M8 21h8"></path>
@@ -159,34 +159,27 @@
 
       <div class="game-center">
         <div class="board-frame">
-          <div class="board-header">
+          <div class="score-wrap">
             <div id="currentScore" class="current-score">0</div>
-
-            <div class="turn-chip">
-              <span>Tour</span>
-              <strong id="turnValue">1</strong>
-            </div>
           </div>
 
           <div class="board-shell">
             <canvas id="gameCanvas"></canvas>
-          </div>
-        </div>
-      </div>
 
-      <div class="game-bottom">
-        <div id="availableWidget" class="available-widget">
-          <div id="availablePill" class="available-pill">
-            <span class="available-icon">
-              <svg viewBox="0 0 24 24" class="svg-icon">
-                <rect x="5" y="5" width="14" height="14" rx="4"></rect>
-                <path d="M9.5 9.5h5v5h-5z"></path>
-              </svg>
-            </span>
-            <strong id="availableCount">0</strong>
+            <div id="comboBadge" class="combo-badge hidden">COMBO x2</div>
           </div>
 
-          <div id="availablePips" class="available-pips"></div>
+          <div class="available-row">
+            <div id="availablePill" class="available-pill">
+              <span class="available-icon">
+                <svg viewBox="0 0 24 24" class="svg-icon">
+                  <rect x="5" y="5" width="14" height="14" rx="4"></rect>
+                  <path d="M9.5 9.5h5v5h-5z"></path>
+                </svg>
+              </span>
+              <strong id="availableCount">0</strong>
+            </div>
+          </div>
         </div>
       </div>
     </section>
