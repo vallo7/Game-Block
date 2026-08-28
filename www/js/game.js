@@ -310,6 +310,57 @@ const Game = {
     return this.cells.every(row => row.every(value => value === 0));
   },
 
+  isGridFull() {
+    return this.cells.every(row => row.every(value => value !== 0));
+  },
+
+  largestEmptyRegion() {
+    const seen = Array.from({ length: this.SIZE }, () => Array(this.SIZE).fill(false));
+    let best = 0;
+
+    for (let startY = 0; startY < this.SIZE; startY++) {
+      for (let startX = 0; startX < this.SIZE; startX++) {
+        if (this.cells[startY][startX] !== 0 || seen[startY][startX]) continue;
+
+        let count = 0;
+        const stack = [{ x: startX, y: startY }];
+        seen[startY][startX] = true;
+
+        while (stack.length > 0) {
+          const cell = stack.pop();
+          count++;
+
+          const neighbors = [
+            { x: cell.x + 1, y: cell.y },
+            { x: cell.x - 1, y: cell.y },
+            { x: cell.x, y: cell.y + 1 },
+            { x: cell.x, y: cell.y - 1 }
+          ];
+
+          for (const n of neighbors) {
+            if (
+              n.x >= 0 && n.x < this.SIZE &&
+              n.y >= 0 && n.y < this.SIZE &&
+              !seen[n.y][n.x] &&
+              this.cells[n.y][n.x] === 0
+            ) {
+              seen[n.y][n.x] = true;
+              stack.push(n);
+            }
+          }
+        }
+
+        if (count > best) best = count;
+      }
+    }
+
+    return best;
+  },
+
+  hasPossibleMove() {
+    return this.largestEmptyRegion() >= this.requiredBlocks;
+  },
+
   generateRequiredBlocks() {
     const diff = this.getDifficulty();
     const fill = this.getFillRatio();
@@ -665,13 +716,10 @@ const Game = {
     }
 
     this.maybeSpawnObstacles();
+    this.setupNextBlock();
     this.checkGameOver();
 
-    if (!this.gameOver) {
-      this.setupNextBlock();
-    } else {
-      this.updateHUD();
-    }
+    this.updateHUD();
   },
 
   celebrateEmptyGrid() {
@@ -833,9 +881,9 @@ const Game = {
   },
 
   checkGameOver() {
-    const isGridFull = this.cells.every(row => row.every(value => value !== 0));
+    const canPlay = this.hasPossibleMove();
 
-    if (!isGridFull) return;
+    if (canPlay) return;
 
     this.gameOver = true;
 
@@ -923,10 +971,7 @@ const Game = {
     GameAudio.playClear(2);
 
     this.updateHUD();
-  },
-
-  isGridFull() {
-    return this.cells.every(row => row.every(value => value !== 0));
+    this.checkGameOver();
   },
 
   updateHUD() {
