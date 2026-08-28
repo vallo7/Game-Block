@@ -21,7 +21,7 @@ const GameAudio = {
     this.ctx = new AudioContextClass();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.34;
+    this.master.gain.value = 0.5;
     this.master.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
@@ -61,7 +61,7 @@ const GameAudio = {
     const {
       duration = 0.08,
       type = "sine",
-      gain = 0.2,
+      gain = 0.26,
       slideTo = null,
       delay = 0
     } = options;
@@ -93,13 +93,13 @@ const GameAudio = {
     this.playTone(540, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.26
+      gain: 0.32
     });
 
     this.playTone(760, {
       duration: 0.04,
       type: "sine",
-      gain: 0.14,
+      gain: 0.18,
       delay: 0.02
     });
   },
@@ -109,7 +109,7 @@ const GameAudio = {
     this.playTone(freq, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.2
+      gain: 0.26
     });
   },
 
@@ -117,7 +117,7 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.04,
       type: "triangle",
-      gain: 0.12,
+      gain: 0.16,
       slideTo: 180
     });
   },
@@ -126,14 +126,14 @@ const GameAudio = {
     this.playTone(330, {
       duration: 0.08,
       type: "sine",
-      gain: 0.24,
+      gain: 0.3,
       slideTo: 430
     });
 
     this.playTone(520, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.12,
+      gain: 0.16,
       delay: 0.03
     });
   },
@@ -142,7 +142,7 @@ const GameAudio = {
     this.playTone(190, {
       duration: 0.1,
       type: "triangle",
-      gain: 0.16,
+      gain: 0.2,
       slideTo: 110
     });
   },
@@ -155,7 +155,7 @@ const GameAudio = {
       this.playTone(base * Math.pow(1.19, i), {
         duration: 0.09,
         type: "triangle",
-        gain: 0.26,
+        gain: 0.32,
         delay: i * 0.032
       });
     }
@@ -164,7 +164,7 @@ const GameAudio = {
       this.playTone(base * 2, {
         duration: 0.18,
         type: "sine",
-        gain: 0.28,
+        gain: 0.34,
         delay: 0.12
       });
     }
@@ -177,7 +177,7 @@ const GameAudio = {
       this.playTone(base * Math.pow(1.26, i), {
         duration: 0.1,
         type: "triangle",
-        gain: 0.26,
+        gain: 0.32,
         delay: i * 0.05
       });
     }
@@ -187,7 +187,7 @@ const GameAudio = {
     this.playTone(110, {
       duration: 0.1,
       type: "square",
-      gain: 0.14,
+      gain: 0.18,
       slideTo: 70
     });
   },
@@ -196,7 +196,7 @@ const GameAudio = {
     this.playTone(660, {
       duration: 0.06,
       type: "triangle",
-      gain: 0.2
+      gain: 0.26
     });
   },
 
@@ -204,7 +204,7 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.22,
       type: "sawtooth",
-      gain: 0.14,
+      gain: 0.18,
       slideTo: 70
     });
   },
