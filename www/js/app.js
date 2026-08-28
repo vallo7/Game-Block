@@ -10,6 +10,7 @@ const App = {
 
     this.bindUI();
     this.bindBackButton();
+    this.bindButtonPop();
     this.showMenu();
     this.hideSplashLater();
 
@@ -21,9 +22,56 @@ const App = {
   bindBackButton() {
     if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
       Capacitor.Plugins.App.addListener("backButton", () => {
-        Capacitor.Plugins.App.exitApp();
+        this.handleBack();
       });
     }
+  },
+
+  handleBack() {
+    const settingsOverlay = document.getElementById("settingsOverlay");
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const gameScreen = document.getElementById("gameScreen");
+
+    if (!settingsOverlay.classList.contains("hidden")) {
+      GameAudio.playClick();
+      this.closeSettings();
+      return;
+    }
+
+    if (!gameOverOverlay.classList.contains("hidden")) {
+      GameAudio.playClick();
+      Game.stopCountdown();
+      this.showMenu();
+      return;
+    }
+
+    if (gameScreen.classList.contains("active")) {
+      GameAudio.playClick();
+      this.showMenu();
+      return;
+    }
+
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+      Capacitor.Plugins.App.exitApp();
+    } else {
+      window.history.back();
+    }
+  },
+
+  bindButtonPop() {
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest ? event.target.closest("button") : null;
+
+      if (!button) return;
+
+      button.classList.remove("btn-pop");
+      void button.offsetWidth;
+      button.classList.add("btn-pop");
+
+      setTimeout(() => {
+        button.classList.remove("btn-pop");
+      }, 320);
+    }, true);
   },
 
   hideSplashLater() {
