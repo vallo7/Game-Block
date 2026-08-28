@@ -34,6 +34,7 @@ const Game = {
 
   countdown: 0,
   countdownTimer: null,
+  gameOverTimeout: null,
 
   cellAnims: {},
   cancelAnims: [],
@@ -85,7 +86,24 @@ const Game = {
   stop() {
     this.active = false;
     this.stopCountdown();
+    this.clearGameOverTimeout();
+    this.unlockUI();
     this.cancelPath(false);
+  },
+
+  clearGameOverTimeout() {
+    if (this.gameOverTimeout) {
+      clearTimeout(this.gameOverTimeout);
+      this.gameOverTimeout = null;
+    }
+  },
+
+  lockUI() {
+    document.body.classList.add("locked");
+  },
+
+  unlockUI() {
+    document.body.classList.remove("locked");
   },
 
   reset() {
@@ -107,6 +125,8 @@ const Game = {
     this.strokeStarted = false;
 
     this.stopCountdown();
+    this.clearGameOverTimeout();
+    this.unlockUI();
 
     this.cellAnims = {};
     this.cancelAnims = [];
@@ -124,6 +144,7 @@ const Game = {
 
     document.getElementById("gameOverOverlay").classList.add("hidden");
     document.getElementById("comboBadge").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("quake");
 
     document.getElementById("currentScore").textContent = "0";
 
@@ -193,14 +214,20 @@ const Game = {
 
     document.getElementById("gameoverHomeBtn").addEventListener("click", () => {
       GameAudio.playClick();
-      this.stopCountdown();
-      App.showMenu();
+
+      setTimeout(() => {
+        this.stopCountdown();
+        App.showMenu();
+      }, 200);
     });
 
     document.getElementById("adsBtn").addEventListener("click", () => {
       GameAudio.playClick();
-      this.stopCountdown();
-      this.revive();
+
+      setTimeout(() => {
+        this.stopCountdown();
+        this.revive();
+      }, 250);
     });
 
     window.addEventListener("resize", () => this.resize());
@@ -314,51 +341,66 @@ const Game = {
     return this.cells.every(row => row.every(value => value !== 0));
   },
 
-  largestEmptyRegion() {
-    const seen = Array.from({ length: this.SIZE }, () => Array(this.SIZE).fill(false));
-    let best = 0;
+  hasPossibleMove() {
+    const target = this.requiredBlocks;
 
-    for (let startY = 0; startY < this.SIZE; startY++) {
-      for (let startX = 0; startX < this.SIZE; startX++) {
-        if (this.cells[startY][startX] !== 0 || seen[startY][startX]) continue;
+    if (target <= 0) return true;
 
-        let count = 0;
-        const stack = [{ x: startX, y: startY }];
-        seen[startY][startX] = true;
+    let emptyCount = 0;
 
-        while (stack.length > 0) {
-          const cell = stack.pop();
-          count++;
-
-          const neighbors = [
-            { x: cell.x + 1, y: cell.y },
-            { x: cell.x - 1, y: cell.y },
-            { x: cell.x, y: cell.y + 1 },
-            { x: cell.x, y: cell.y - 1 }
-          ];
-
-          for (const n of neighbors) {
-            if (
-              n.x >= 0 && n.x < this.SIZE &&
-              n.y >= 0 && n.y < this.SIZE &&
-              !seen[n.y][n.x] &&
-              this.cells[n.y][n.x] === 0
-            ) {
-              seen[n.y][n.x] = true;
-              stack.push(n);
-            }
-          }
-        }
-
-        if (count > best) best = count;
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] === 0) emptyCount++;
       }
     }
 
-    return best;
-  },
+    if (emptyCount < target) return false;
 
-  hasPossibleMove() {
-    return this.largestEmptyRegion() >= this.requiredBlocks;
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ];
+
+    const findPath = (x, y, depth, visited) => {
+      if (depth === target) return true;
+
+      const key = y * this.SIZE + x;
+      visited.add(key);
+
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        if (
+          nx >= 0 && nx < this.SIZE &&
+          ny >= 0 && ny < this.SIZE &&
+          this.cells[ny][nx] === 0 &&
+          !visited.has(ny * this.SIZE + nx)
+        ) {
+          if (findPath(nx, ny, depth + 1, visited)) {
+            visited.delete(key);
+            return true;
+          }
+        }
+      }
+
+      visited.delete(key);
+      return false;
+    };
+
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] !== 0) continue;
+
+        if (findPath(x, y, 1, new Set())) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   },
 
   generateRequiredBlocks() {
@@ -630,7 +672,7 @@ const Game = {
     };
 
     GameAudio.playAdd(this.path.length);
-    Haptics.vibrate(18);
+    Haptics.vibrate(12);
 
     this.updateHUD();
   },
@@ -663,7 +705,7 @@ const Game = {
 
     if (animated) {
       GameAudio.playCancel();
-      Haptics.vibrate([30, 40, 30]);
+      Haptics.vibrate([20, 30, 20]);
     }
 
     this.updateHUD();
@@ -723,8 +765,6 @@ const Game = {
   },
 
   celebrateEmptyGrid() {
-    Theme.shift();
-
     GameAudio.playColorShift();
     Haptics.vibrate(600);
 
@@ -741,6 +781,22 @@ const Game = {
     }
 
     this.timeScale = 0.4;
+
+    setTimeout(() => {
+      if (!this.active) return;
+
+      const screen = document.getElementById("gameScreen");
+
+      screen.classList.add("quake");
+
+      setTimeout(() => {
+        Theme.shift();
+      }, 300);
+
+      setTimeout(() => {
+        screen.classList.remove("quake");
+      }, 760);
+    }, 300);
   },
 
   registerCombo(clearCount) {
@@ -881,9 +937,7 @@ const Game = {
   },
 
   checkGameOver() {
-    const canPlay = this.hasPossibleMove();
-
-    if (canPlay) return;
+    if (this.hasPossibleMove()) return;
 
     this.gameOver = true;
 
@@ -892,13 +946,22 @@ const Game = {
       Storage.saveBest(this.best);
     }
 
-    this.startGameOver();
+    this.lockUI();
+
+    this.clearGameOverTimeout();
+
+    this.gameOverTimeout = setTimeout(() => {
+      this.gameOverTimeout = null;
+      this.startGameOver();
+    }, 3000);
   },
 
   startGameOver() {
     const overlay = document.getElementById("gameOverOverlay");
     const ring = document.getElementById("ringFg");
     const countdownEl = document.getElementById("countdownValue");
+
+    this.unlockUI();
 
     GameAudio.playGameOver();
 
@@ -908,7 +971,7 @@ const Game = {
     void ring.offsetWidth;
     ring.classList.add("drain");
 
-    this.countdown = 5;
+    this.countdown = 10;
     countdownEl.textContent = this.countdown;
 
     this.stopCountdown();
@@ -1472,6 +1535,6 @@ const Game = {
     this.spawnDebris(x, y, "#ef4444", 1);
 
     GameAudio.playError();
-    Haptics.vibrate(45);
+    Haptics.vibrate(30);
   }
 };
