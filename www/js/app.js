@@ -2,6 +2,8 @@ const App = {
   splashHidden: false,
 
   init() {
+    Theme.init();
+
     Settings.load();
     Game.init();
     Menu.init();
@@ -35,19 +37,19 @@ const App = {
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
       GameAudio.playClick();
-      Haptics.vibrate(6);
+      Haptics.vibrate(25);
       this.openSettings();
     });
 
     settingsCloseBtn.addEventListener("click", () => {
       GameAudio.playClick();
-      Haptics.vibrate(5);
+      Haptics.vibrate(25);
       this.closeSettings();
     });
 
     settingsHomeBtn.addEventListener("click", () => {
       GameAudio.playClick();
-      Haptics.vibrate(5);
+      Haptics.vibrate(25);
       this.closeSettings();
       this.showMenu();
     });
@@ -62,7 +64,7 @@ const App = {
       button.addEventListener("click", () => {
         GameAudio.unlock();
         GameAudio.playClick();
-        Haptics.vibrate(6);
+        Haptics.vibrate(25);
 
         const key = button.dataset.setting;
         Settings.toggle(key);
@@ -71,6 +73,8 @@ const App = {
   },
 
   showMenu() {
+    Theme.useMenuColor();
+
     document.getElementById("menuScreen").classList.add("active");
     document.getElementById("gameScreen").classList.remove("active");
 
@@ -78,6 +82,8 @@ const App = {
   },
 
   showGame() {
+    Theme.useMenuColor();
+
     document.getElementById("menuScreen").classList.remove("active");
     document.getElementById("gameScreen").classList.add("active");
 
