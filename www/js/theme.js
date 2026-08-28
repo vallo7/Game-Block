@@ -43,19 +43,7 @@ const Theme = {
     }
 
     this.gameIndex = next;
-
-    this.burst(this.bank[next]);
     this.apply(next);
-  },
-
-  burst(color) {
-    const el = document.getElementById("themeBurst");
-    if (!el) return;
-
-    el.style.background = color.bg;
-    el.classList.remove("play");
-    void el.offsetWidth;
-    el.classList.add("play");
   },
 
   rgb(hex) {
