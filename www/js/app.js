@@ -9,12 +9,21 @@ const App = {
     Menu.init();
 
     this.bindUI();
+    this.bindBackButton();
     this.showMenu();
     this.hideSplashLater();
 
     document.addEventListener("pointerdown", () => {
       GameAudio.unlock();
     }, { once: true });
+  },
+
+  bindBackButton() {
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+      Capacitor.Plugins.App.addListener("backButton", () => {
+        Capacitor.Plugins.App.exitApp();
+      });
+    }
   },
 
   hideSplashLater() {
@@ -37,19 +46,16 @@ const App = {
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
       GameAudio.playClick();
-      Haptics.vibrate(25);
       this.openSettings();
     });
 
     settingsCloseBtn.addEventListener("click", () => {
       GameAudio.playClick();
-      Haptics.vibrate(25);
       this.closeSettings();
     });
 
     settingsHomeBtn.addEventListener("click", () => {
       GameAudio.playClick();
-      Haptics.vibrate(25);
       this.closeSettings();
       this.showMenu();
     });
@@ -64,7 +70,6 @@ const App = {
       button.addEventListener("click", () => {
         GameAudio.unlock();
         GameAudio.playClick();
-        Haptics.vibrate(25);
 
         const key = button.dataset.setting;
         Settings.toggle(key);
