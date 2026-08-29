@@ -35,13 +35,19 @@ const Game = {
 
   countdown: 0,
   countdownTimer: null,
-  gameOverTimeout: null,
+  freezeTimeout: null,
+  defeatSoundTimeout: null,
+  popupTimeout: null,
 
   colorFx: null,
+  freezeFx: null,
+  freezeDelays: {},
   lineBeams: [],
 
   cellAnims: {},
   cancelAnims: [],
+  cellFlashes: [],
+  floatingTexts: [],
   particles: [],
   debris: [],
   shockwaves: [],
@@ -93,15 +99,25 @@ const Game = {
   stop() {
     this.active = false;
     this.stopCountdown();
-    this.clearGameOverTimeout();
+    this.clearDefeatTimeouts();
     this.unlockUI();
     this.cancelPath(false);
   },
 
-  clearGameOverTimeout() {
-    if (this.gameOverTimeout) {
-      clearTimeout(this.gameOverTimeout);
-      this.gameOverTimeout = null;
+  clearDefeatTimeouts() {
+    if (this.freezeTimeout) {
+      clearTimeout(this.freezeTimeout);
+      this.freezeTimeout = null;
+    }
+
+    if (this.defeatSoundTimeout) {
+      clearTimeout(this.defeatSoundTimeout);
+      this.defeatSoundTimeout = null;
+    }
+
+    if (this.popupTimeout) {
+      clearTimeout(this.popupTimeout);
+      this.popupTimeout = null;
     }
   },
 
@@ -133,13 +149,17 @@ const Game = {
     this.runActive = true;
 
     this.stopCountdown();
-    this.clearGameOverTimeout();
+    this.clearDefeatTimeouts();
     this.unlockUI();
 
     this.colorFx = null;
+    this.freezeFx = null;
+    this.freezeDelays = {};
     this.lineBeams = [];
     this.cellAnims = {};
     this.cancelAnims = [];
+    this.cellFlashes = [];
+    this.floatingTexts = [];
     this.particles = [];
     this.debris = [];
     this.shockwaves = [];
@@ -757,17 +777,68 @@ const Game = {
     GameAudio.playPlace();
 
     const result = this.processClears();
+    const count = result.count;
+    const emptied = this.isGridEmpty();
+
+    if (count > 0) {
+      this.combo = emptied ? 8 : this.combo + 1;
+    } else {
+      this.combo = 0;
+    }
+
+    if (count > 0) {
+      let base = count * 100;
+
+      const beforeBonus = Math.floor(this.totalCleared / 2);
+      this.totalCleared += count;
+
+      if (Math.floor(this.totalCleared / 2) > beforeBonus) {
+        base += 200;
+      }
+
+      let points = base * Math.max(1, this.combo);
+
+      if (emptied) {
+        points += 300 * 8;
+      }
+
+      this.addScore(points);
+
+      const color = emptied ? "#ffb100" : this.pointsColor(count);
+
+      this.addFloatingText(
+        `+${points}`,
+        this.canvas.width / 2,
+        this.canvas.height / 2,
+        color
+      );
+
+      const vib = [];
+      for (let i = 0; i < count; i++) {
+        vib.push(30 + count * 10, 20);
+      }
+      Haptics.vibrate(vib);
+
+      this.comboUntil = this.gameNow + 1800;
+
+      if (this.combo >= 2) {
+        const badge = document.getElementById("comboBadge");
+
+        badge.textContent = `COMBO x${this.combo}`;
+        badge.classList.remove("hidden");
+        badge.classList.remove("pop", "mega");
+        void badge.offsetWidth;
+        badge.classList.add(emptied ? "mega" : "pop");
+      }
+    } else {
+      this.comboUntil = this.gameNow + 1800;
+    }
 
     this.turn += 1;
     this.turnsSinceObstacle += 1;
 
-    const emptied = this.isGridEmpty();
-
     if (emptied) {
-      this.registerCombo(8, true);
       this.celebrateEmptyGrid();
-    } else {
-      this.registerCombo(result ? result.count : 0, false);
     }
 
     this.maybeSpawnObstacles();
@@ -777,9 +848,26 @@ const Game = {
     this.updateHUD();
   },
 
+  pointsColor(count) {
+    if (count >= 4) return "#ff9f1a";
+    if (count === 3) return "#ffb100";
+    if (count === 2) return Theme.current.light;
+    return "#faf3e1";
+  },
+
+  addFloatingText(text, x, y, color) {
+    this.floatingTexts.push({
+      text,
+      x,
+      y,
+      color,
+      start: this.gameNow
+    });
+  },
+
   celebrateEmptyGrid() {
     GameAudio.playColorShift();
-    Haptics.vibrate(600);
+    Haptics.vibrate(1200);
 
     this.spawnShockwave(
       this.canvas.width / 2,
@@ -817,27 +905,6 @@ const Game = {
     halo.classList.add("play");
   },
 
-  registerCombo(count, emptied) {
-    const badge = document.getElementById("comboBadge");
-
-    if (count <= 0 && !emptied) {
-      this.combo = 0;
-      badge.classList.add("hidden");
-      return;
-    }
-
-    this.combo = emptied ? 8 : this.combo + 1;
-    this.comboUntil = this.gameNow + 1800;
-
-    if (this.combo >= 2) {
-      badge.textContent = `COMBO x${this.combo}`;
-      badge.classList.remove("hidden");
-      badge.classList.remove("pop", "mega");
-      void badge.offsetWidth;
-      badge.classList.add(emptied ? "mega" : "pop");
-    }
-  },
-
   processClears() {
     const fullRows = [];
     const fullCols = [];
@@ -862,7 +929,7 @@ const Game = {
 
     const count = fullRows.length + fullCols.length;
 
-    if (count === 0) return { count: 0, reward: 0 };
+    if (count === 0) return { count: 0 };
 
     const clearedKeys = new Set();
 
@@ -892,14 +959,24 @@ const Game = {
       }
     }
 
+    let i = 0;
+
     for (const key of clearedKeys) {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
 
       const color = value === 3 ? Theme.current.dark : "#faf3e1";
 
+      this.cellFlashes.push({
+        x,
+        y,
+        start: this.gameNow + (i % 8) * 22
+      });
+
       this.spawnDebris(x, y, color, 3);
       this.spawnParticles(x, y, 8, null);
+
+      i++;
     }
 
     for (const y of fullRows) {
@@ -913,22 +990,6 @@ const Game = {
         this.cells[y][x] = 0;
       }
     }
-
-    let reward = count;
-    let points = count * 100;
-
-    const beforeBonus = Math.floor(this.totalCleared / 2);
-    this.totalCleared += count;
-    const afterBonus = Math.floor(this.totalCleared / 2);
-
-    if (afterBonus > beforeBonus) {
-      points += 200;
-      reward += 1;
-    }
-
-    points += Math.max(0, this.combo) * 50;
-
-    this.addScore(points);
 
     this.spawnShockwave(
       this.canvas.width / 2,
@@ -947,7 +1008,7 @@ const Game = {
     void scoreEl.offsetWidth;
     scoreEl.classList.add("score-bump");
 
-    return { count, reward };
+    return { count };
   },
 
   addScore(points) {
@@ -975,13 +1036,42 @@ const Game = {
     }
 
     this.lockUI();
+    this.clearDefeatTimeouts();
 
-    this.clearGameOverTimeout();
+    this.freezeTimeout = setTimeout(() => {
+      this.freezeTimeout = null;
+      this.startFreeze();
 
-    this.gameOverTimeout = setTimeout(() => {
-      this.gameOverTimeout = null;
-      this.startGameOver();
-    }, 3000);
+      this.defeatSoundTimeout = setTimeout(() => {
+        this.defeatSoundTimeout = null;
+        GameAudio.playDefeatLong(2000);
+      }, 1000);
+
+      this.popupTimeout = setTimeout(() => {
+        this.popupTimeout = null;
+        this.startGameOver();
+      }, 3000);
+    }, 2000);
+  },
+
+  startFreeze() {
+    const order = this.shuffleArray(
+      Array.from({ length: this.SIZE * this.SIZE }, (_, i) => i)
+    );
+
+    this.freezeDelays = {};
+
+    order.forEach((cellIndex, position) => {
+      const x = cellIndex % this.SIZE;
+      const y = Math.floor(cellIndex / this.SIZE);
+
+      this.freezeDelays[`${x},${y}`] = position * (3000 / (this.SIZE * this.SIZE));
+    });
+
+    this.freezeFx = {
+      start: this.gameNow,
+      duration: 3000
+    };
   },
 
   startGameOver() {
@@ -1054,6 +1144,8 @@ const Game = {
     }
 
     this.gameOver = false;
+    this.freezeFx = null;
+    this.freezeDelays = {};
     this.turnsSinceObstacle = 0;
     this.timeScale = 0.5;
 
@@ -1200,10 +1292,12 @@ const Game = {
     this.drawBoard();
     this.drawPathLine();
     this.drawCells();
+    this.drawCellFlashes(now);
     this.drawLineFlashes(now);
     this.drawLineBeams(now);
     this.drawShockwaves(now);
     this.drawCancelAnims(now);
+    this.drawFloatingTexts(now);
     this.drawParticles();
     this.drawDebris();
     this.drawPointerLight();
@@ -1299,6 +1393,17 @@ const Game = {
     return { pulse, glow };
   },
 
+  getFreezeAlpha(x, y, now) {
+    if (!this.freezeFx) return 0;
+
+    const delay = this.freezeDelays[`${x},${y}`] ?? 0;
+    const ft = now - (this.freezeFx.start + delay);
+
+    if (ft <= 0) return 0;
+
+    return Math.min(1, ft / 220);
+  },
+
   drawCells() {
     const cellSize = this.getCellSize();
     const now = this.gameNow;
@@ -1361,6 +1466,46 @@ const Game = {
           this.roundRectPath(px + pad, py + pad, box, box, radius);
           this.ctx.fill();
           this.ctx.restore();
+        }
+
+        const ice = this.getFreezeAlpha(x, y, now);
+
+        if (ice > 0) {
+          const px = x * cellSize;
+          const py = y * cellSize;
+          const pad = cellSize * 0.035;
+          const box = cellSize - pad * 2;
+          const radius = cellSize * 0.16;
+
+          const ctx = this.ctx;
+
+          ctx.save();
+          ctx.globalAlpha = ice * 0.92;
+
+          const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
+          gradient.addColorStop(0, "#ffffff");
+          gradient.addColorStop(1, "#9fd8ff");
+
+          ctx.fillStyle = gradient;
+          this.roundRectPath(px + pad, py + pad, box, box, radius);
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+          ctx.lineWidth = Math.max(1, cellSize * 0.03);
+          this.roundRectPath(px + pad, py + pad, box, box, radius);
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+          this.roundRectPath(
+            px + pad + box * 0.12,
+            py + pad + box * 0.1,
+            box * 0.76,
+            box * 0.2,
+            radius * 0.7
+          );
+          ctx.fill();
+
+          ctx.restore();
         }
       }
     }
@@ -1440,6 +1585,69 @@ const Game = {
     ctx.fill();
 
     ctx.restore();
+  },
+
+  drawCellFlashes(now) {
+    const ctx = this.ctx;
+    const cellSize = this.getCellSize();
+
+    this.cellFlashes = this.cellFlashes.filter(item => now >= item.start && now - item.start < 380);
+
+    for (const flash of this.cellFlashes) {
+      const t = (now - flash.start) / 380;
+      const alpha = Math.sin(Math.PI * t);
+
+      const px = flash.x * cellSize;
+      const py = flash.y * cellSize;
+      const pad = cellSize * 0.035;
+      const box = cellSize - pad * 2;
+      const radius = cellSize * 0.16;
+
+      ctx.save();
+
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.shadowColor = "rgba(250, 243, 225, 0.9)";
+      ctx.shadowBlur = cellSize * 0.35;
+      ctx.fillStyle = "#faf3e1";
+
+      this.roundRectPath(px + pad, py + pad, box, box, radius);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  },
+
+  drawFloatingTexts(now) {
+    const ctx = this.ctx;
+
+    this.floatingTexts = this.floatingTexts.filter(item => now - item.start < 1000);
+
+    for (const item of this.floatingTexts) {
+      const age = now - item.start;
+      const t = age / 1000;
+
+      const scale = this.easeOutBack(Math.min(1, age / 220));
+      const y = item.y - t * this.getCellSize() * 0.8;
+      const alpha = 1 - Math.max(0, (age - 600) / 400);
+
+      ctx.save();
+
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.translate(item.x, y);
+      ctx.scale(scale, scale);
+
+      ctx.font = `900 ${Math.floor(this.getCellSize() * 0.55)}px "Baloo 2", Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+      ctx.shadowBlur = 12;
+
+      ctx.fillStyle = item.color;
+      ctx.fillText(item.text, 0, 0);
+
+      ctx.restore();
+    }
   },
 
   drawPathLine() {
