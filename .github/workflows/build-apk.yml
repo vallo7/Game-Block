@@ -34,6 +34,24 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Replace app icon
+        run: |
+          if [ -f icon.png ]; then
+            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+            for dir in android/app/src/main/res/mipmap-*; do
+              if [ -d "$dir" ]; then
+                cp icon.png "$dir/ic_launcher.png"
+                cp icon.png "$dir/ic_launcher_round.png"
+              fi
+            done
+
+            echo "Custom icon applied."
+          else
+            echo "No custom icon found, keeping default icon."
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
