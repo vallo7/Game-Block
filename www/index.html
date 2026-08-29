@@ -41,6 +41,7 @@
 
     <div class="watermark" id="watermark" aria-hidden="true"></div>
 
+    <!-- Boutons rapides : colonne verticale, petits -->
     <div class="quick-settings">
       <button class="quick-btn" data-setting="sound" aria-label="Sound">
         <svg viewBox="0 0 24 24" class="svg-icon">
@@ -65,17 +66,6 @@
       </button>
     </div>
 
-    <button id="adsBlockBtn" class="ads-block-btn">
-      <span class="ads-block-icon">
-        <svg viewBox="0 0 24 24" class="svg-icon">
-          <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-          <path d="m9 9 6 6"></path>
-          <path d="m15 9-6 6"></path>
-        </svg>
-      </span>
-      <strong id="adsBlockLabel">DÉSACTIVER LES PUBS</strong>
-    </button>
-
     <div class="menu-hero">
       <div class="logo-mark" aria-hidden="true">
         <span class="logo-cell accent"></span>
@@ -86,6 +76,21 @@
 
       <h1 class="logo-title">INK BLAST</h1>
       <p class="logo-sub">Draw. Clear. Survive.</p>
+    </div>
+
+    <!-- Bouton pubs : dans le flux, à droite, hauteur d'œil, jamais de chevauchement -->
+    <div class="ad-row">
+      <button id="adsBlockBtn" class="ads-block-btn">
+        <span class="ads-block-icon">
+          <svg viewBox="0 0 24 24" class="svg-icon">
+            <rect x="3" y="5" width="18" height="14" rx="3"></rect>
+            <path d="m9 9 6 6"></path>
+            <path d="m15 9-6 6"></path>
+          </svg>
+        </span>
+        <strong id="adsBlockLabel">DÉSACTIVER LES PUBS</strong>
+        <span class="ads-shine" aria-hidden="true"></span>
+      </button>
     </div>
 
     <div class="mode-list">
@@ -196,13 +201,16 @@
     <div class="game-center">
       <div class="board-frame">
         <div class="score-wrap">
+          <!-- Zone de feedback : combos + mots rares, sans chevauchement -->
+          <div id="feedbackZone" class="feedback-zone">
+            <div id="comboBadge" class="combo-badge hidden">COMBO x2</div>
+          </div>
           <div id="currentScore" class="current-score">0</div>
         </div>
 
         <div class="board-shell">
           <canvas id="gameCanvas"></canvas>
           <div id="haloWave" aria-hidden="true"></div>
-          <div id="comboBadge" class="combo-badge hidden">COMBO x2</div>
         </div>
 
         <div class="available-row">
@@ -241,42 +249,40 @@
         </button>
       </div>
 
-      <div class="settings-grid">
-        <button id="settingSound" class="setting-card" data-setting="sound">
-          <span class="setting-icon">
+      <!-- Même design que l'accueil -->
+      <div class="settings-quick-row">
+        <div class="sq-item">
+          <button class="quick-btn" data-setting="sound" aria-label="Sound">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
               <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
               <path d="M18 6a8 8 0 0 1 0 12"></path>
             </svg>
-          </span>
-          <span class="setting-word">Sound</span>
-          <span class="setting-dot"></span>
-        </button>
+          </button>
+          <span class="sq-word">Sound</span>
+        </div>
 
-        <button id="settingMusic" class="setting-card" data-setting="music">
-          <span class="setting-icon">
+        <div class="sq-item">
+          <button class="quick-btn" data-setting="music" aria-label="Music">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <path d="M9 18V5l10-2v13"></path>
               <circle cx="6" cy="18" r="3"></circle>
               <circle cx="16" cy="16" r="3"></circle>
             </svg>
-          </span>
-          <span class="setting-word">Music</span>
-          <span class="setting-dot"></span>
-        </button>
+          </button>
+          <span class="sq-word">Music</span>
+        </div>
 
-        <button id="settingVibration" class="setting-card" data-setting="vibration">
-          <span class="setting-icon">
+        <div class="sq-item">
+          <button class="quick-btn" data-setting="vibration" aria-label="Vibrations">
             <svg viewBox="0 0 24 24" class="svg-icon">
               <rect x="8" y="3" width="8" height="18" rx="2.5"></rect>
               <path d="M4.5 8.5v7"></path>
               <path d="M19.5 8.5v7"></path>
             </svg>
-          </span>
-          <span class="setting-word">Vibrations</span>
-          <span class="setting-dot"></span>
-        </button>
+          </button>
+          <span class="sq-word">Vibrations</span>
+        </div>
       </div>
 
       <div class="settings-restart">
@@ -296,15 +302,6 @@
   <!-- GAME OVER -->
   <div id="gameOverOverlay" class="overlay hidden" aria-hidden="true">
     <div class="gameover-panel">
-      <div class="gameover-top">
-        <button id="gameoverHomeBtn" class="mini-btn btn-home" aria-label="Home">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M4 11.5 12 4l8 7.5"></path>
-            <path d="M7 10.5V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.5"></path>
-          </svg>
-        </button>
-      </div>
-
       <div class="defeat-msg">PLUS DE COUPS !</div>
 
       <div class="countdown-wrap">
@@ -317,15 +314,29 @@
 
       <div class="continue-msg">Regarde une pub pour continuer !</div>
 
-      <button id="adsBtn" class="ads-btn">
-        <span class="ads-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-            <path d="M10 9.5v5l4.5-2.5L10 9.5Z"></path>
-          </svg>
-        </span>
-        <strong>CONTINUER !</strong>
-      </button>
+      <div class="gameover-actions">
+        <button id="adsBtn" class="ads-btn">
+          <span class="ads-icon">
+            <svg viewBox="0 0 24 24" class="svg-icon">
+              <rect x="3" y="5" width="18" height="14" rx="3"></rect>
+              <path d="M10 9.5v5l4.5-2.5L10 9.5Z"></path>
+            </svg>
+          </span>
+          <strong>CONTINUER !</strong>
+        </button>
+
+        <button id="restartBtn" class="restart-btn">
+          <span class="restart-icon">
+            <svg viewBox="0 0 24 24" class="svg-icon">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+              <path d="M20 4v5h-5"></path>
+            </svg>
+          </span>
+          <strong>RESTART</strong>
+        </button>
+
+        <button id="gameoverHomeBtn" class="home-btn">MENU</button>
+      </div>
     </div>
   </div>
 
