@@ -9,6 +9,7 @@ const Game = {
   gameOver: false,
   drawing: false,
   strokeStarted: false,
+  sequenceRunning: false,
 
   cells: [],
   path: [],
@@ -76,7 +77,9 @@ const Game = {
       const el = document.createElement("div");
       el.id = "praiseBadge";
       el.className = "praise-badge hidden";
-      document.querySelector(".board-shell").appendChild(el);
+
+      const zone = document.getElementById("feedbackZone") || document.querySelector(".board-shell");
+      zone.appendChild(el);
     }
 
     this.bindEvents();
@@ -155,6 +158,7 @@ const Game = {
     this.comboUntil = 0;
     this.praiseUntil = 0;
     this.timeScale = 1;
+    this.sequenceRunning = false;
 
     this.gameOver = false;
     this.drawing = false;
@@ -192,7 +196,6 @@ const Game = {
     document.getElementById("comboBadge").classList.add("hidden");
     document.getElementById("praiseBadge").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("quake");
-
     document.getElementById("currentScore").textContent = "0";
 
     this.updateHUD();
@@ -275,6 +278,11 @@ const Game = {
         this.stopCountdown();
         this.revive();
       }, 250);
+    });
+
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      GameAudio.playClick();
+      this.startNewGameSequence();
     });
 
     window.addEventListener("resize", () => this.resize());
@@ -1014,6 +1022,15 @@ const Game = {
         start: this.gameNow,
         duration: 800
       };
+
+      const screen = document.getElementById("gameScreen");
+      screen.classList.remove("quake");
+      void screen.offsetWidth;
+      screen.classList.add("quake");
+
+      setTimeout(() => {
+        screen.classList.remove("quake");
+      }, 900);
     }
 
     if (level >= 3) {
@@ -1036,43 +1053,33 @@ const Game = {
   },
 
   celebrateEmptyGrid() {
-    GameAudio.playColorShift();
-    Haptics.vibrate(1200);
-
-    this.spawnShockwave(
-      this.canvas.width / 2,
-      this.canvas.height / 2,
-      this.canvas.width * 0.55
-    );
-
-    for (let i = 0; i < 6; i++) {
-      const x = Math.floor(Math.random() * this.SIZE);
-      const y = Math.floor(Math.random() * this.SIZE);
-      this.spawnParticles(x, y, 6, "#faf3e1");
-    }
-
     this.timeScale = 0.4;
 
-    this.colorFx = {
-      start: this.gameNow,
-      duration: 900
-    };
-
-    Theme.shift(900);
-
-    const screen = document.getElementById("gameScreen");
-    screen.classList.remove("quake");
-    void screen.offsetWidth;
-    screen.classList.add("quake");
-
     setTimeout(() => {
-      screen.classList.remove("quake");
-    }, 900);
+      const duration = 900;
+      const start = this.gameNow;
 
-    const halo = document.getElementById("haloWave");
-    halo.classList.remove("play", "thick");
-    void halo.offsetWidth;
-    halo.classList.add("play", "thick");
+      this.colorFx = { start, duration };
+      this.blockShake = { start, duration: duration + 200 };
+
+      Theme.shift(duration);
+      GameAudio.playColorShift();
+      Haptics.vibrate(1200);
+
+      const screen = document.getElementById("gameScreen");
+      screen.classList.remove("quake");
+      void screen.offsetWidth;
+      screen.classList.add("quake");
+
+      setTimeout(() => {
+        screen.classList.remove("quake");
+      }, duration);
+
+      const halo = document.getElementById("haloWave");
+      halo.classList.remove("play", "thick");
+      void halo.offsetWidth;
+      halo.classList.add("play", "thick");
+    }, 200);
   },
 
   processClears() {
@@ -1271,8 +1278,7 @@ const Game = {
       this.countdown -= 1;
 
       if (this.countdown <= 0) {
-        this.stopCountdown();
-        this.reset();
+        this.startNewGameSequence();
         return;
       }
 
@@ -1283,6 +1289,58 @@ const Game = {
 
       GameAudio.playCountdown();
     }, 1000);
+  },
+
+  startNewGameSequence() {
+    if (this.sequenceRunning) return;
+    this.sequenceRunning = true;
+
+    this.stopCountdown();
+
+    const overlay = document.getElementById("gameOverOverlay");
+
+    overlay.classList.add("fade-out");
+
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      overlay.classList.remove("fade-out");
+    }, 300);
+
+    setTimeout(() => {
+      const blocks = [];
+
+      for (let y = 0; y < this.SIZE; y++) {
+        for (let x = 0; x < this.SIZE; x++) {
+          if (this.cells[y][x] !== 0) {
+            blocks.push({ x, y });
+          }
+        }
+      }
+
+      const shuffled = this.shuffleArray(blocks);
+      const step = Math.max(12, Math.floor(900 / Math.max(1, shuffled.length)));
+
+      shuffled.forEach((cell, index) => {
+        setTimeout(() => {
+          this.cells[cell.y][cell.x] = 0;
+          this.spawnParticles(cell.x, cell.y, 2, "#9fd8ff");
+          GameAudio.playBlockDisappear(index);
+        }, index * step);
+      });
+
+      const scoreEl = document.getElementById("currentScore");
+      scoreEl.classList.add("score-reset");
+      this.score = 0;
+
+      setTimeout(() => {
+        scoreEl.classList.remove("score-reset");
+      }, 900);
+
+      setTimeout(() => {
+        this.sequenceRunning = false;
+        this.reset();
+      }, 2000);
+    }, 300);
   },
 
   stopCountdown() {
@@ -1568,16 +1626,31 @@ const Game = {
     const ring = Math.max(Math.abs(x - 3.5), Math.abs(y - 3.5));
     const wave = (age / this.colorFx.duration) * 6.5;
 
-    const pulse = 1 + 0.05 * Math.sin(age / 42 + ring * 1.3);
-
     const d = wave - ring;
-    let glow = 0;
+    const bell = Math.max(0, 1 - Math.abs(d - 0.4) / 1.3);
 
-    if (d > -0.9 && d < 1.7) {
-      glow = 0.6 * Math.max(0, 1 - Math.abs(d - 0.4) / 1.3);
-    }
+    const pulse = 1 + 0.25 * bell;
+    const glow = 0.9 * bell;
 
     return { pulse, glow };
+  },
+
+  getLightWaveScale(x, y, now) {
+    if (!this.lightWave) return 1;
+
+    const age = now - this.lightWave.start;
+    const duration = 900;
+
+    if (age > duration) return 1;
+
+    const p = age / duration;
+    const ring = Math.max(Math.abs(x - 3.5), Math.abs(y - 3.5));
+    const wave = p * 6.5;
+
+    const d = wave - ring;
+    const bell = Math.max(0, 1 - Math.abs(d - 0.4) / 1.2);
+
+    return 1 + 0.18 * bell;
   },
 
   getFreezeState(x, y, now) {
@@ -1674,6 +1747,8 @@ const Game = {
           scale *= fx.pulse;
           glow = fx.glow;
         }
+
+        scale *= this.getLightWaveScale(x, y, now);
 
         this.drawCellAt(x, y, value, scale, alpha, shake);
 
@@ -1796,10 +1871,9 @@ const Game = {
       ctx.save();
 
       ctx.globalCompositeOperation = "lighter";
-
       ctx.globalAlpha = alpha * 0.35;
       ctx.translate(px + center, py + center);
-      ctx.scale(1.25, 1.25);
+      ctx.scale(1.25 + 0.15 * t, 1.25 + 0.15 * t);
       ctx.translate(-center, -center);
       ctx.fillStyle = "#faf3e1";
       this.roundRectPath(pad, pad, box, box, r);
@@ -1812,6 +1886,7 @@ const Game = {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = alpha;
       ctx.translate(px + center, py + center);
+      ctx.scale(1 + 0.3 * t, 1 + 0.3 * t);
       ctx.translate(-center, -center);
       ctx.fillStyle = "#faf3e1";
       this.roundRectPath(pad, pad, box, box, r);
