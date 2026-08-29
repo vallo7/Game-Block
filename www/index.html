@@ -1,347 +1,273 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+name="viewport"
+content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
 />
 <title>Ink Blast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800;900&display=swap"
-  rel="stylesheet"
+href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800;900&display=swap"
+rel="stylesheet"
 />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 <div id="app">
-
-  <!-- SPLASH -->
-  <div id="splash">
-    <div class="splash-content">
-      <div class="splash-grid" aria-hidden="true">
-        <span class="splash-block" style="--i:0"></span>
-        <span class="splash-block" style="--i:1"></span>
-        <span class="splash-block" style="--i:2"></span>
-        <span class="splash-block" style="--i:3"></span>
-        <span class="splash-block accent" style="--i:4"></span>
-        <span class="splash-block" style="--i:5"></span>
-        <span class="splash-block" style="--i:6"></span>
-        <span class="splash-block" style="--i:7"></span>
-        <span class="splash-block" style="--i:8"></span>
-      </div>
-      <div class="splash-title">INK BLAST</div>
-    </div>
-  </div>
-
-  <!-- MENU -->
-  <section id="menuScreen" class="screen active">
-
-    <div class="watermark" id="watermark" aria-hidden="true"></div>
-
-    <!-- Boutons rapides : colonne verticale, petits -->
-    <div class="quick-settings">
-      <button class="quick-btn" data-setting="sound" aria-label="Sound">
-        <svg viewBox="0 0 24 24" class="svg-icon">
-          <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
-          <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
-          <path d="M18 6a8 8 0 0 1 0 12"></path>
-        </svg>
-      </button>
-      <button class="quick-btn" data-setting="music" aria-label="Music">
-        <svg viewBox="0 0 24 24" class="svg-icon">
-          <path d="M9 18V5l10-2v13"></path>
-          <circle cx="6" cy="18" r="3"></circle>
-          <circle cx="16" cy="16" r="3"></circle>
-        </svg>
-      </button>
-      <button class="quick-btn" data-setting="vibration" aria-label="Vibrations">
-        <svg viewBox="0 0 24 24" class="svg-icon">
-          <rect x="8" y="3" width="8" height="18" rx="2.5"></rect>
-          <path d="M4.5 8.5v7"></path>
-          <path d="M19.5 8.5v7"></path>
-        </svg>
-      </button>
-    </div>
-
-    <div class="menu-hero">
-      <div class="logo-mark" aria-hidden="true">
-        <span class="logo-cell accent"></span>
-        <span class="logo-cell"></span>
-        <span class="logo-cell"></span>
-        <span class="logo-cell"></span>
-      </div>
-
-      <h1 class="logo-title">INK BLAST</h1>
-      <p class="logo-sub">Draw. Clear. Survive.</p>
-    </div>
-
-    <!-- Bouton pubs : dans le flux, à droite, hauteur d'œil, jamais de chevauchement -->
-    <div class="ad-row">
-      <button id="adsBlockBtn" class="ads-block-btn">
-        <span class="ads-block-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-            <path d="m9 9 6 6"></path>
-            <path d="m15 9-6 6"></path>
-          </svg>
-        </span>
-        <strong id="adsBlockLabel">DÉSACTIVER LES PUBS</strong>
-        <span class="ads-shine" aria-hidden="true"></span>
-      </button>
-    </div>
-
-    <div class="mode-list">
-      <button id="classicModeBtn" class="mode-card mode-c1">
-        <span class="mode-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="4" y="4" width="7" height="7" rx="2"></rect>
-            <rect x="13" y="4" width="7" height="7" rx="2"></rect>
-            <rect x="4" y="13" width="7" height="7" rx="2"></rect>
-            <path d="M14 16.5h4M16 14.5v4"></path>
-          </svg>
-        </span>
-        <span class="mode-text">
-          <strong>Classic</strong>
-          <small>Draw & clear</small>
-        </span>
-        <span class="mode-action">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
-          </svg>
-        </span>
-      </button>
-
-      <button class="mode-card locked mode-c2" disabled>
-        <span class="mode-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <circle cx="12" cy="12" r="7"></circle>
-            <path d="M12 5v14"></path>
-          </svg>
-        </span>
-        <span class="mode-text">
-          <strong>Zen</strong>
-          <small>Soon</small>
-        </span>
-        <span class="mode-action">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="5" y="11" width="14" height="9" rx="2"></rect>
-            <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
-          </svg>
-        </span>
-      </button>
-
-      <button class="mode-card locked mode-c3" disabled>
-        <span class="mode-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="4" y="4" width="16" height="16" rx="3"></rect>
-            <path d="M8 12h8M12 8v8"></path>
-          </svg>
-        </span>
-        <span class="mode-text">
-          <strong>Puzzle</strong>
-          <small>Soon</small>
-        </span>
-        <span class="mode-action">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="5" y="11" width="14" height="9" rx="2"></rect>
-            <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
-          </svg>
-        </span>
-      </button>
-
-      <button class="mode-card locked mode-c4" disabled>
-        <span class="mode-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M5 19c4.5-1 7.5-3.8 9-8.5"></path>
-            <path d="M13 5h6v6"></path>
-            <path d="M19 5 12.5 11.5"></path>
-          </svg>
-        </span>
-        <span class="mode-text">
-          <strong>Survival</strong>
-          <small>Soon</small>
-        </span>
-        <span class="mode-action">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <rect x="5" y="11" width="14" height="9" rx="2"></rect>
-            <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
-          </svg>
-        </span>
-      </button>
-    </div>
-  </section>
-
-  <!-- GAME -->
-  <section id="gameScreen" class="screen">
-    <div class="game-top">
-      <button id="settingsBtn" class="top-btn" aria-label="Settings">
-        <svg viewBox="0 0 24 24" class="svg-icon">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      </button>
-
-      <div class="best-score top-btn" aria-label="Best score">
-        <span class="best-icon">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M8 21h8"></path>
-            <path d="M12 17v4"></path>
-            <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"></path>
-            <path d="M17 5h2a2 2 0 0 1-2 4"></path>
-            <path d="M7 5H5a2 2 0 0 0 2 4"></path>
-          </svg>
-        </span>
-        <span id="bestScoreValue">0</span>
-      </div>
-    </div>
-
-    <div class="game-center">
-      <div class="board-frame">
-        <div class="score-wrap">
-          <!-- Zone de feedback : combos + mots rares, sans chevauchement -->
-          <div id="feedbackZone" class="feedback-zone">
-            <div id="comboBadge" class="combo-badge hidden">COMBO x2</div>
-          </div>
-          <div id="currentScore" class="current-score">0</div>
-        </div>
-
-        <div class="board-shell">
-          <canvas id="gameCanvas"></canvas>
-          <div id="haloWave" aria-hidden="true"></div>
-        </div>
-
-        <div class="available-row">
-          <div id="availablePill" class="available-pill">
-            <span class="available-icon">
-              <svg viewBox="0 0 24 24" class="svg-icon">
-                <rect x="5" y="5" width="14" height="14" rx="4"></rect>
-                <path d="M9.5 9.5h5v5h-5z"></path>
-              </svg>
-            </span>
-            <strong id="availableCount">0</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SETTINGS -->
-  <div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
-    <div class="settings-panel">
-      <div class="settings-top">
-        <button id="settingsHomeBtn" class="mini-btn btn-home" aria-label="Home">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M4 11.5 12 4l8 7.5"></path>
-            <path d="M7 10.5V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.5"></path>
-          </svg>
-        </button>
-
-        <div class="settings-title">Settings</div>
-
-        <button id="settingsCloseBtn" class="mini-btn btn-close" aria-label="Close">
-          <svg viewBox="0 0 24 24" class="svg-icon">
-            <path d="M6 6l12 12"></path>
-            <path d="M18 6 6 18"></path>
-          </svg>
-        </button>
-      </div>
-
-      <!-- Même design que l'accueil -->
-      <div class="settings-quick-row">
-        <div class="sq-item">
-          <button class="quick-btn" data-setting="sound" aria-label="Sound">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
-              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
-              <path d="M18 6a8 8 0 0 1 0 12"></path>
-            </svg>
-          </button>
-          <span class="sq-word">Sound</span>
-        </div>
-
-        <div class="sq-item">
-          <button class="quick-btn" data-setting="music" aria-label="Music">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <path d="M9 18V5l10-2v13"></path>
-              <circle cx="6" cy="18" r="3"></circle>
-              <circle cx="16" cy="16" r="3"></circle>
-            </svg>
-          </button>
-          <span class="sq-word">Music</span>
-        </div>
-
-        <div class="sq-item">
-          <button class="quick-btn" data-setting="vibration" aria-label="Vibrations">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <rect x="8" y="3" width="8" height="18" rx="2.5"></rect>
-              <path d="M4.5 8.5v7"></path>
-              <path d="M19.5 8.5v7"></path>
-            </svg>
-          </button>
-          <span class="sq-word">Vibrations</span>
-        </div>
-      </div>
-
-      <div class="settings-restart">
-        <button id="settingsRestartBtn" class="restart-game-btn">
-          <span class="restart-icon">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
-              <path d="M20 4v5h-5"></path>
-            </svg>
-          </span>
-          <strong>RESTART</strong>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- GAME OVER -->
-  <div id="gameOverOverlay" class="overlay hidden" aria-hidden="true">
-    <div class="gameover-panel">
-      <div class="defeat-msg">PLUS DE COUPS !</div>
-
-      <div class="countdown-wrap">
-        <svg class="countdown-ring" viewBox="0 0 100 100">
-          <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
-          <circle id="ringFg" class="ring-fg" cx="50" cy="50" r="42"></circle>
-        </svg>
-        <div id="countdownValue" class="countdown-value">10</div>
-      </div>
-
-      <div class="continue-msg">Regarde une pub pour continuer !</div>
-
-      <div class="gameover-actions">
-        <button id="adsBtn" class="ads-btn">
-          <span class="ads-icon">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-              <path d="M10 9.5v5l4.5-2.5L10 9.5Z"></path>
-            </svg>
-          </span>
-          <strong>CONTINUER !</strong>
-        </button>
-
-        <button id="restartBtn" class="restart-btn">
-          <span class="restart-icon">
-            <svg viewBox="0 0 24 24" class="svg-icon">
-              <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
-              <path d="M20 4v5h-5"></path>
-            </svg>
-          </span>
-          <strong>RESTART</strong>
-        </button>
-
-        <button id="gameoverHomeBtn" class="home-btn">MENU</button>
-      </div>
-    </div>
-  </div>
-
+<!-- SPLASH -->
+<div id="splash">
+<div class="splash-content">
+<div class="splash-grid" aria-hidden="true">
+<span class="splash-block" style="--i:0"></span>
+<span class="splash-block" style="--i:1"></span>
+<span class="splash-block" style="--i:2"></span>
+<span class="splash-block" style="--i:3"></span>
+<span class="splash-block accent" style="--i:4"></span>
+<span class="splash-block" style="--i:5"></span>
+<span class="splash-block" style="--i:6"></span>
+<span class="splash-block" style="--i:7"></span>
+<span class="splash-block" style="--i:8"></span>
 </div>
-
+<div class="splash-title">INK BLAST</div>
+</div>
+</div>
+<!-- MENU -->
+<section id="menuScreen" class="screen active">
+<div class="menu-hero">
+<div class="logo-mark" aria-hidden="true">
+<span class="logo-cell accent"></span>
+<span class="logo-cell"></span>
+<span class="logo-cell"></span>
+<span class="logo-cell"></span>
+</div>
+<h1 class="logo-title">INK BLAST</h1>
+<p class="logo-sub">Draw. Clear. Survive.</p>
+</div>
+<div class="mode-list">
+<button id="classicModeBtn" class="mode-card mode-c1">
+<span class="mode-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="4" y="4" width="7" height="7" rx="2"></rect>
+<rect x="13" y="4" width="7" height="7" rx="2"></rect>
+<rect x="4" y="13" width="7" height="7" rx="2"></rect>
+<path d="M14 16.5h4M16 14.5v4"></path>
+</svg>
+</span>
+<span class="mode-text">
+<strong>Classic</strong>
+<small>Draw & clear</small>
+</span>
+<span class="mode-action">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
+</svg>
+</span>
+</button>
+<button class="mode-card locked mode-c2" disabled>
+<span class="mode-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<circle cx="12" cy="12" r="7"></circle>
+<path d="M12 5v14"></path>
+</svg>
+</span>
+<span class="mode-text">
+<strong>Zen</strong>
+<small>Soon</small>
+</span>
+<span class="mode-action">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="5" y="11" width="14" height="9" rx="2"></rect>
+<path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+</svg>
+</span>
+</button>
+<button class="mode-card locked mode-c3" disabled>
+<span class="mode-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="4" y="4" width="16" height="16" rx="3"></rect>
+<path d="M8 12h8M12 8v8"></path>
+</svg>
+</span>
+<span class="mode-text">
+<strong>Puzzle</strong>
+<small>Soon</small>
+</span>
+<span class="mode-action">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="5" y="11" width="14" height="9" rx="2"></rect>
+<path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+</svg>
+</span>
+</button>
+<button class="mode-card locked mode-c4" disabled>
+<span class="mode-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M5 19c4.5-1 7.5-3.8 9-8.5"></path>
+<path d="M13 5h6v6"></path>
+<path d="M19 5 12.5 11.5"></path>
+</svg>
+</span>
+<span class="mode-text">
+<strong>Survival</strong>
+<small>Soon</small>
+</span>
+<span class="mode-action">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="5" y="11" width="14" height="9" rx="2"></rect>
+<path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+</svg>
+</span>
+</button>
+</div>
+</section>
+<!-- GAME -->
+<section id="gameScreen" class="screen">
+<div class="game-top">
+<button id="settingsBtn" class="top-btn" aria-label="Settings">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<circle cx="12" cy="12" r="3"></circle>
+<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+</svg>
+</button>
+<div class="best-score top-btn" aria-label="Best score">
+<span class="best-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M8 21h8"></path>
+<path d="M12 17v4"></path>
+<path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"></path>
+<path d="M17 5h2a2 2 0 0 1-2 4"></path>
+<path d="M7 5H5a2 2 0 0 0 2 4"></path>
+</svg>
+</span>
+<span id="bestScoreValue">0</span>
+</div>
+</div>
+<div class="game-center">
+<div class="board-frame">
+<div class="score-wrap">
+<div id="currentScore" class="current-score">0</div>
+</div>
+<div class="board-shell">
+<canvas id="gameCanvas"></canvas>
+<div id="haloWave" aria-hidden="true"></div>
+<div id="comboBadge" class="combo-badge hidden">COMBO x2</div>
+</div>
+<div class="available-row">
+<div id="availablePill" class="available-pill">
+<span class="available-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="5" y="5" width="14" height="14" rx="4"></rect>
+<path d="M9.5 9.5h5v5h-5z"></path>
+</svg>
+</span>
+<strong id="availableCount">0</strong>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SETTINGS -->
+<div id="settingsOverlay" class="overlay hidden" aria-hidden="true">
+<div class="settings-panel">
+<div class="settings-top">
+<button id="settingsHomeBtn" class="mini-btn btn-home" aria-label="Home">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M4 11.5 12 4l8 7.5"></path>
+<path d="M7 10.5V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.5"></path>
+</svg>
+</button>
+<div class="settings-title">Settings</div>
+<button id="settingsCloseBtn" class="mini-btn btn-close" aria-label="Close">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M6 6l12 12"></path>
+<path d="M18 6 6 18"></path>
+</svg>
+</button>
+</div>
+<div class="settings-grid">
+<button id="settingSound" class="setting-card" data-setting="sound">
+<span class="setting-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
+<path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+<path d="M18 6a8 8 0 0 1 0 12"></path>
+</svg>
+</span>
+<span class="setting-word">Sound</span>
+<span class="setting-dot"></span>
+</button>
+<button id="settingMusic" class="setting-card" data-setting="music">
+<span class="setting-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M9 18V5l10-2v13"></path>
+<circle cx="6" cy="18" r="3"></circle>
+<circle cx="16" cy="16" r="3"></circle>
+</svg>
+</span>
+<span class="setting-word">Music</span>
+<span class="setting-dot"></span>
+</button>
+<button id="settingVibration" class="setting-card" data-setting="vibration">
+<span class="setting-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="8" y="3" width="8" height="18" rx="2.5"></rect>
+<path d="M4.5 8.5v7"></path>
+<path d="M19.5 8.5v7"></path>
+</svg>
+</span>
+<span class="setting-word">Vibrations</span>
+<span class="setting-dot"></span>
+</button>
+</div>
+<div class="settings-restart">
+<button id="settingsRestartBtn" class="restart-game-btn">
+<span class="restart-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+<path d="M20 4v5h-5"></path>
+</svg>
+</span>
+<strong>RESTART</strong>
+</button>
+</div>
+</div>
+</div>
+<!-- GAME OVER -->
+<div id="gameOverOverlay" class="overlay hidden" aria-hidden="true">
+<div class="gameover-panel">
+<div class="defeat-msg">NO MORE MOVES!</div>
+<div class="countdown-wrap">
+<svg class="countdown-ring" viewBox="0 0 100 100">
+<circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+<circle id="ringFg" class="ring-fg" cx="50" cy="50" r="42"></circle>
+</svg>
+<div id="countdownValue" class="countdown-value">10</div>
+</div>
+<div class="continue-msg">Watch an ad to continue!</div>
+<button id="adsBtn" class="ads-btn">
+<span class="ads-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<rect x="3" y="5" width="18" height="14" rx="3"></rect>
+<path d="M10 9.5v5l4.5-2.5L10 9.5Z"></path>
+</svg>
+</span>
+<strong>CONTINUE!</strong>
+</button>
+<button id="restartBtn" class="restart-btn">
+<span class="restart-icon">
+<svg viewBox="0 0 24 24" class="svg-icon">
+<path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+<path d="M20 4v5h-5"></path>
+</svg>
+</span>
+<strong>RESTART</strong>
+</button>
+</div>
+</div>
+</div>
 <script src="js/storage.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/audio.js"></script>
