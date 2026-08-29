@@ -3,32 +3,48 @@ const App = {
   lastBackPress: 0,
 
   init() {
-    // Le splash se masque TOUJOURS, même si une erreur survient ensuite
+    Theme.init();
+    Settings.load();
+    Game.init();
+    Menu.init();
+
+    this.bindUI();
+    this.bindBackButton();
+    this.bindButtonPop();
+    this.bindVisibility();
+    this.buildWatermark();
+    this.updateAdsUI();
+    this.showMenu();
     this.hideSplashLater();
-
-    try {
-      Theme.init();
-      Settings.load();
-      Game.init();
-      Menu.init();
-
-      this.bindUI();
-      this.bindBackButton();
-      this.bindButtonPop();
-      this.showMenu();
-    } catch (error) {
-      console.error("Ink Blast init error:", error);
-    }
 
     document.addEventListener("pointerdown", () => {
       GameAudio.unlock();
     }, { once: true });
   },
 
-  on(id, handler) {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("click", handler);
-    return el;
+  bindVisibility() {
+    document.addEventListener("visibilitychange", () => {
+      GameAudio.handleVisibility();
+    });
+
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+      Capacitor.Plugins.App.addListener("appStateChange", (state) => {
+        if (state && typeof state.isActive === "boolean") {
+          if (!state.isActive) {
+            if (GameAudio.ctx && GameAudio.ctx.state === "running") {
+              GameAudio.ctx.suspend();
+            }
+          } else {
+            if (GameAudio.ctx && GameAudio.ctx.state === "suspended") {
+              GameAudio.ctx.resume();
+            }
+            if (GameAudio.musicEnabled) {
+              GameAudio.startMusic();
+            }
+          }
+        }
+      });
+    }
   },
 
   bindBackButton() {
@@ -44,20 +60,20 @@ const App = {
     const gameOverOverlay = document.getElementById("gameOverOverlay");
     const gameScreen = document.getElementById("gameScreen");
 
-    if (settingsOverlay && !settingsOverlay.classList.contains("hidden")) {
+    if (!settingsOverlay.classList.contains("hidden")) {
       GameAudio.playClick();
       this.closeSettings();
       return;
     }
 
-    if (gameOverOverlay && !gameOverOverlay.classList.contains("hidden")) {
+    if (!gameOverOverlay.classList.contains("hidden")) {
       GameAudio.playClick();
       Game.stopCountdown();
       this.showMenu();
       return;
     }
 
-    if (gameScreen && gameScreen.classList.contains("active")) {
+    if (gameScreen.classList.contains("active")) {
       GameAudio.playClick();
       this.showMenu();
       return;
@@ -104,9 +120,41 @@ const App = {
     }, 1600);
   },
 
-  celebrateEl(el) {
-    if (!el) return;
+  buildWatermark() {
+    const host = document.getElementById("watermark");
+    if (!host || host.childElementCount > 0) return;
 
+    for (let i = 0; i < 12; i++) {
+      const block = document.createElement("div");
+      block.className = "watermark-block";
+
+      const size = 26 + Math.random() * 60;
+
+      block.style.width = size + "px";
+      block.style.height = size + "px";
+      block.style.left = Math.random() * 100 + "%";
+      block.style.top = Math.random() * 100 + "%";
+      block.style.animationDuration = 14 + Math.random() * 18 + "s";
+      block.style.animationDelay = -Math.random() * 20 + "s";
+
+      host.appendChild(block);
+    }
+  },
+
+  updateAdsUI() {
+    const btn = document.getElementById("adsBlockBtn");
+    const label = document.getElementById("adsBlockLabel");
+    if (!btn) return;
+
+    const on = Boolean(Settings.data.adsBlocked);
+
+    btn.classList.toggle("on", on);
+    if (label) {
+      label.textContent = on ? "PUBS DÉSACTIVÉES" : "DÉSACTIVER LES PUBS";
+    }
+  },
+
+  celebrateEl(el) {
     el.classList.remove("celebrate");
     void el.offsetWidth;
     el.classList.add("celebrate");
@@ -117,8 +165,6 @@ const App = {
   },
 
   confetti(originEl) {
-    if (!originEl) return;
-
     const rect = originEl.getBoundingClientRect();
     const ox = rect.left + rect.width / 2;
     const oy = rect.top + rect.height / 2;
@@ -148,9 +194,39 @@ const App = {
   },
 
   bindUI() {
+    const settingsBtn = document.getElementById("settingsBtn");
     const settingsOverlay = document.getElementById("settingsOverlay");
+    const settingsCloseBtn = document.getElementById("settingsCloseBtn");
+    const settingsHomeBtn = document.getElementById("settingsHomeBtn");
+    const settingsRestartBtn = document.getElementById("settingsRestartBtn");
+    const bestScore = document.querySelector(".best-score");
+    const availablePill = document.getElementById("availablePill");
+    const adsBlockBtn = document.getElementById("adsBlockBtn");
 
-    this.on("settingsBtn", () => {
+    bestScore.addEventListener("click", () => {
+      GameAudio.unlock();
+      GameAudio.playClick();
+      this.celebrateEl(bestScore);
+      this.confetti(bestScore);
+    });
+
+    availablePill.addEventListener("click", () => {
+      GameAudio.unlock();
+      GameAudio.playClick();
+      this.celebrateEl(availablePill);
+    });
+
+    adsBlockBtn.addEventListener("click", () => {
+      GameAudio.unlock();
+      GameAudio.playClick();
+      Haptics.vibrate(20);
+
+      Settings.data.adsBlocked = !Settings.data.adsBlocked;
+      Settings.save();
+      this.updateAdsUI();
+    });
+
+    settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
       GameAudio.playClick();
 
@@ -159,12 +235,12 @@ const App = {
       }, 160);
     });
 
-    this.on("settingsCloseBtn", () => {
+    settingsCloseBtn.addEventListener("click", () => {
       GameAudio.playClick();
       this.closeSettings();
     });
 
-    this.on("settingsHomeBtn", () => {
+    settingsHomeBtn.addEventListener("click", () => {
       GameAudio.playClick();
 
       setTimeout(() => {
@@ -173,7 +249,7 @@ const App = {
       }, 200);
     });
 
-    this.on("settingsRestartBtn", () => {
+    settingsRestartBtn.addEventListener("click", () => {
       GameAudio.playClick();
 
       setTimeout(() => {
@@ -182,32 +258,11 @@ const App = {
       }, 200);
     });
 
-    if (settingsOverlay) {
-      settingsOverlay.addEventListener("click", (event) => {
-        if (event.target === settingsOverlay) {
-          this.closeSettings();
-        }
-      });
-    }
-
-    const bestScore = document.querySelector(".best-score");
-    if (bestScore) {
-      bestScore.addEventListener("click", () => {
-        GameAudio.unlock();
-        GameAudio.playClick();
-        this.celebrateEl(bestScore);
-        this.confetti(bestScore);
-      });
-    }
-
-    const availablePill = document.getElementById("availablePill");
-    if (availablePill) {
-      availablePill.addEventListener("click", () => {
-        GameAudio.unlock();
-        GameAudio.playClick();
-        this.celebrateEl(availablePill);
-      });
-    }
+    settingsOverlay.addEventListener("click", (event) => {
+      if (event.target === settingsOverlay) {
+        this.closeSettings();
+      }
+    });
 
     document.querySelectorAll("[data-setting]").forEach(button => {
       button.addEventListener("click", () => {
@@ -242,13 +297,11 @@ const App = {
   },
 
   openSettings() {
-    const overlay = document.getElementById("settingsOverlay");
-    if (overlay) overlay.classList.remove("hidden");
+    document.getElementById("settingsOverlay").classList.remove("hidden");
   },
 
   closeSettings() {
-    const overlay = document.getElementById("settingsOverlay");
-    if (overlay) overlay.classList.add("hidden");
+    document.getElementById("settingsOverlay").classList.add("hidden");
   }
 };
 
