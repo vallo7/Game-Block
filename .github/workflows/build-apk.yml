@@ -34,6 +34,11 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick
+
       - name: Generate crisp app icon
         run: |
           if [ -f icon.png ]; then
@@ -43,9 +48,8 @@ jobs:
             # Recadre au centre en carré parfait
             convert icon.png -gravity center -crop "%[fx:min(w,h)]x%[fx:min(w,h)]+0+0" +repage /tmp/icon_square.png
 
-            # Garantit une base haute résolution (1024x1024)
-            convert /tmp/icon_square.png -resize 1024x1024^ /tmp/icon_1024.png
-            convert /tmp/icon_1024.png -gravity center -crop 1024x1024+0+0 +repage /tmp/icon_1024.png
+            # Base haute résolution 1024x1024
+            convert /tmp/icon_square.png -resize 1024x1024 /tmp/icon_1024.png
 
             # Génère toutes les densités Android
             for entry in "48 mdpi" "72 hdpi" "96 xhdpi" "144 xxhdpi" "192 xxxhdpi"; do
