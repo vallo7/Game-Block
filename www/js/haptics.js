@@ -17,40 +17,41 @@ const Haptics = {
     if (!this.enabled) return;
 
     if (this.hasPlugin()) {
-      const HapticsPlugin = Capacitor.Plugins.Haptics;
+      const P = Capacitor.Plugins.Haptics;
 
-      const isLong = typeof pattern === "number" && pattern >= 300;
-      const isStrong =
-        Array.isArray(pattern) ||
-        (typeof pattern === "number" && pattern >= 40);
+      if (Array.isArray(pattern)) {
+        let t = 0;
 
-      if (isLong) {
-        HapticsPlugin.impact({ style: "MEDIUM" });
+        pattern.forEach((value, index) => {
+          if (index % 2 === 0) {
+            const style = value >= 40 ? "MEDIUM" : "LIGHT";
 
-        setTimeout(() => {
-          HapticsPlugin.impact({ style: "MEDIUM" });
-        }, 160);
+            setTimeout(() => {
+              P.impact({ style });
+            }, t);
+          }
 
-        setTimeout(() => {
-          HapticsPlugin.impact({ style: "MEDIUM" });
-        }, 320);
-      } else if (isStrong) {
-        HapticsPlugin.impact({ style: "MEDIUM" });
+          t += value;
+        });
+      } else if (typeof pattern === "number" && pattern >= 300) {
+        const steps = Math.max(3, Math.min(7, Math.round(pattern / 180)));
+
+        for (let i = 0; i < steps; i++) {
+          setTimeout(() => {
+            P.impact({ style: i === steps - 1 ? "MEDIUM" : "LIGHT" });
+          }, i * 160);
+        }
+      } else if (typeof pattern === "number" && pattern >= 40) {
+        P.impact({ style: "MEDIUM" });
       } else {
-        HapticsPlugin.impact({ style: "LIGHT" });
+        P.impact({ style: "LIGHT" });
       }
 
       return;
     }
 
     if (navigator.vibrate) {
-      if (typeof pattern === "number" && pattern >= 300) {
-        navigator.vibrate([15, 30, 15, 30, 15]);
-      } else if (Array.isArray(pattern) || (typeof pattern === "number" && pattern >= 40)) {
-        navigator.vibrate(18);
-      } else {
-        navigator.vibrate(8);
-      }
+      navigator.vibrate(pattern);
     }
   }
 };
