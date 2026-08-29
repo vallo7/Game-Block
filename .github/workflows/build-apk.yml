@@ -34,22 +34,34 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
-      - name: Replace app icon
+      - name: Generate crisp app icon
         run: |
           if [ -f icon.png ]; then
-            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+            # Supprime l'icône adaptative par défaut
+            rm -rf android/app/src/main/res/mipmap-anydpi-v26
 
-            for dir in android/app/src/main/res/mipmap-*; do
-              if [ -d "$dir" ]; then
-                cp icon.png "$dir/ic_launcher.png"
-                cp icon.png "$dir/ic_launcher_round.png"
-              fi
+            # Recadre au centre en carré parfait
+            convert icon.png -gravity center -crop "%[fx:min(w,h)]x%[fx:min(w,h)]+0+0" +repage /tmp/icon_square.png
+
+            # Garantit une base haute résolution (1024x1024)
+            convert /tmp/icon_square.png -resize 1024x1024^ /tmp/icon_1024.png
+            convert /tmp/icon_1024.png -gravity center -crop 1024x1024+0+0 +repage /tmp/icon_1024.png
+
+            # Génère toutes les densités Android
+            for entry in "48 mdpi" "72 hdpi" "96 xhdpi" "144 xxhdpi" "192 xxxhdpi"; do
+              set -- $entry
+              px="$1"
+              name="$2"
+              dir="android/app/src/main/res/mipmap-$name"
+
+              mkdir -p "$dir"
+              convert /tmp/icon_1024.png -resize ${px}x${px} "$dir/ic_launcher.png"
+              cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
             done
 
-            echo "Custom icon applied."
+            echo "Custom icon generated."
           else
-            echo "No custom icon found, keeping default icon."
+            echo "icon.png not found, keeping default icon."
           fi
 
       - name: Set up JDK 17
