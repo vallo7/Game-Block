@@ -1,306 +1,383 @@
 const GameAudio = {
   ctx: null,
-  unlocked: false,
-  musicSource: null,
-  musicPlaying: false,
+  master: null,
+  musicGain: null,
+  musicNodes: [],
 
-  init() {
-    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    this.ctx = new AudioContext();
+  soundEnabled: true,
+  musicEnabled: false,
 
-    this.loadAmbientMusic();
+  ensure() {
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume();
+      }
+      return;
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    this.ctx = new AudioContextClass();
+
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.8;
+    this.master.connect(this.ctx.destination);
+
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.gain.value = 0.0001;
+    this.musicGain.connect(this.master);
   },
 
   unlock() {
-    if (this.unlocked) return;
+    this.ensure();
 
-    if (this.ctx.state === "suspended") {
-      this.ctx.resume();
-    }
-
-    this.unlocked = true;
-
-    if (Settings.music && !this.musicPlaying) {
-      this.startAmbientMusic();
+    if (this.musicEnabled) {
+      this.startMusic();
     }
   },
 
-  loadAmbientMusic() {
-    // Charger votre fichier audio ici
-    // Exemple: this.ambientBuffer = await this.loadAudioFile('assets/ambient.mp3');
+  setSoundEnabled(value) {
+    this.soundEnabled = value;
   },
 
-  startAmbientMusic() {
-    if (!this.ambientBuffer || this.musicPlaying) return;
+  setMusicEnabled(value) {
+    this.musicEnabled = value;
 
-    this.musicSource = this.ctx.createBufferSource();
-    this.musicSource.buffer = this.ambientBuffer;
-    this.musicSource.loop = true;
+    if (value) {
+      this.startMusic();
+    } else {
+      this.stopMusic();
+    }
+  },
 
+  playTone(freq, options = {}) {
+    if (!this.soundEnabled) return;
+
+    this.ensure();
+
+    if (!this.ctx || !this.master) return;
+
+    const {
+      duration = 0.08,
+      type = "sine",
+      gain = 0.3,
+      slideTo = null,
+      delay = 0
+    } = options;
+
+    const now = this.ctx.currentTime + delay;
+
+    const oscillator = this.ctx.createOscillator();
     const gainNode = this.ctx.createGain();
-    gainNode.gain.value = 0.4; // Volume agréable mais audible
 
-    this.musicSource.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(freq, now);
 
-    this.musicSource.start();
-    this.musicPlaying = true;
-  },
-
-  stopAmbientMusic() {
-    if (this.musicSource) {
-      this.musicSource.stop();
-      this.musicSource = null;
+    if (slideTo) {
+      oscillator.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
     }
-    this.musicPlaying = false;
-  },
 
-  playTone(freq, type, duration, volume = 0.3) {
-    if (!Settings.sound || !this.unlocked) return;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.exponentialRampToValueAtTime(gain, now + 0.012);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(this.master);
 
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-
-    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + duration);
+    oscillator.start(now);
+    oscillator.stop(now + duration + 0.03);
   },
 
   playClick() {
-    this.playTone(800, "sine", 0.08, 0.25);
-  },
+    this.playTone(540, {
+      duration: 0.05,
+      type: "triangle",
+      gain: 0.36
+    });
 
-  playAdd(length) {
-    const baseFreq = 440 + (length - 1) * 60;
-    this.playTone(baseFreq, "sine", 0.12, 0.3);
-  },
-
-  playBack() {
-    this.playTone(320, "sine", 0.1, 0.25);
-  },
-
-  playPlace() {
-    this.playTone(520, "triangle", 0.15, 0.35);
-  },
-
-  playCancel() {
-    this.playTone(280, "sawtooth", 0.12, 0.25);
-  },
-
-  playError() {
-    this.playTone(180, "sawtooth", 0.15, 0.3);
-  },
-
-  playClear(count) {
-    const baseFreq = 520 + count * 80;
-    this.playTone(baseFreq, "sine", 0.2, 0.4);
-
-    if (count >= 2) {
-      setTimeout(() => this.playTone(baseFreq + 120, "sine", 0.15, 0.35), 80);
-    }
-
-    if (count >= 3) {
-      setTimeout(() => this.playTone(baseFreq + 200, "sine", 0.15, 0.35), 160);
-    }
-  },
-
-  playPraise(level) {
-    const notes = [523, 659, 784, 988, 1175];
-    const note = notes[level - 1] || 523;
-
-    this.playTone(note, "sine", 0.25, 0.45);
-    setTimeout(() => this.playTone(note * 1.25, "sine", 0.2, 0.4), 100);
-  },
-
-  playColorShift() {
-    [440, 554, 659, 784].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, "sine", 0.15, 0.35), i * 60);
+    this.playTone(760, {
+      duration: 0.04,
+      type: "sine",
+      gain: 0.22,
+      delay: 0.02
     });
   },
 
-  playDefeatLong(duration) {
-    if (!Settings.sound || !this.unlocked) return;
+  playAdd(index) {
+    const freq = 300 * Math.pow(1.05946, index);
+    this.playTone(freq, {
+      duration: 0.05,
+      type: "triangle",
+      gain: 0.3
+    });
+  },
 
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+  playBack() {
+    this.playTone(220, {
+      duration: 0.04,
+      type: "triangle",
+      gain: 0.18,
+      slideTo: 180
+    });
+  },
 
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + duration / 1000);
+  playPlace() {
+    this.playTone(330, {
+      duration: 0.08,
+      type: "sine",
+      gain: 0.34,
+      slideTo: 430
+    });
 
-    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + duration / 1000);
+    this.playTone(520, {
+      duration: 0.05,
+      type: "triangle",
+      gain: 0.18,
+      delay: 0.03
+    });
+  },
 
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
+  playCancel() {
+    this.playTone(190, {
+      duration: 0.1,
+      type: "triangle",
+      gain: 0.22,
+      slideTo: 110
+    });
+  },
 
-    osc.start();
-    osc.stop(this.ctx.currentTime + duration / 1000);
+  playClear(count) {
+    const base = 392;
+    const notes = Math.min(count + 2, 5);
+
+    for (let i = 0; i < notes; i++) {
+      this.playTone(base * Math.pow(1.19, i), {
+        duration: 0.09,
+        type: "triangle",
+        gain: 0.36,
+        delay: i * 0.032
+      });
+    }
+
+    if (count > 1) {
+      this.playTone(base * 2, {
+        duration: 0.18,
+        type: "sine",
+        gain: 0.38,
+        delay: 0.12
+      });
+    }
   },
 
   playFreezeTick(index) {
-    const freq = 220 + index * 40;
-    this.playTone(freq, "square", 0.08, 0.2);
+    this.playTone(700 + index * 90, {
+      duration: 0.05,
+      type: "sine",
+      gain: 0.14
+    });
   },
 
-  playGameOver() {
-    [262, 196, 165, 131].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, "sawtooth", 0.25, 0.3), i * 150);
+  playPraise(level) {
+    const base = 523;
+    const notes = 3 + level;
+
+    for (let i = 0; i < notes; i++) {
+      this.playTone(base * Math.pow(1.22, i), {
+        duration: 0.1,
+        type: "triangle",
+        gain: 0.34,
+        delay: i * 0.05
+      });
+    }
+
+    if (level >= 3) {
+      this.playTone(base / 2, {
+        duration: 0.3,
+        type: "sine",
+        gain: 0.3,
+        delay: 0.1
+      });
+    }
+
+    if (level >= 5) {
+      this.playTone(base * 3, {
+        duration: 0.2,
+        type: "sine",
+        gain: 0.3,
+        delay: 0.3
+      });
+
+      this.playTone(base * 4, {
+        duration: 0.2,
+        type: "sine",
+        gain: 0.24,
+        delay: 0.38
+      });
+    }
+  },
+
+  playColorShift() {
+    const base = 523;
+
+    for (let i = 0; i < 4; i++) {
+      this.playTone(base * Math.pow(1.26, i), {
+        duration: 0.1,
+        type: "triangle",
+        gain: 0.36,
+        delay: i * 0.05
+      });
+    }
+  },
+
+  playError() {
+    this.playTone(110, {
+      duration: 0.1,
+      type: "square",
+      gain: 0.2,
+      slideTo: 70
     });
   },
 
   playCountdown() {
-    this.playTone(660, "sine", 0.12, 0.35);
-  },
-
-  playWaveTick() {
-    this.playTone(880, "sine", 0.06, 0.25);
-  },
-
-  playBlockDisappear() {
-    this.playTone(340, "sine", 0.1, 0.25);
-  }
-};
-
-const Haptics = {
-  vibrate(pattern) {
-    if (!Settings.vibration || !navigator.vibrate) return;
-
-    navigator.vibrate(pattern);
-  }
-};
-
-const Settings = {
-  sound: true,
-  music: true,
-  vibration: true,
-  adsBlocked: false,
-
-  load() {
-    const saved = localStorage.getItem("inkBlastSettings");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      Object.assign(this, parsed);
-    }
-  },
-
-  save() {
-    localStorage.setItem("inkBlastSettings", JSON.stringify({
-      sound: this.sound,
-      music: this.music,
-      vibration: this.vibration,
-      adsBlocked: this.adsBlocked
-    }));
-  }
-};
-
-const Storage = {
-  getBest() {
-    return parseInt(localStorage.getItem("inkBlastBest") || "0", 10);
-  },
-
-  saveBest(score) {
-    localStorage.setItem("inkBlastBest", String(score));
-  }
-};
-
-const Theme = {
-  current: {
-    light: "#ffb100",
-    dark: "#ff6f00"
-  },
-
-  rgb(color) {
-    const hex = color.replace("#", "");
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    return `${r},${g},${b}`;
-  },
-
-  shift(duration) {
-    const hues = [45, 90, 135, 180, 225, 270, 315, 360];
-    let index = hues.indexOf(this.hue) + 1;
-    if (index >= hues.length) index = 0;
-
-    this.hue = hues[index];
-    this.current.light = `hsl(${this.hue}, 90%, 60%)`;
-    this.current.dark = `hsl(${this.hue}, 90%, 45%)`;
-  },
-
-  hue: 45
-};
-
-const App = {
-  init() {
-    Settings.load();
-    GameAudio.init();
-    Game.init();
-
-    this.bindMenuEvents();
-    this.updateSettingsUI();
-  },
-
-  bindMenuEvents() {
-    document.getElementById("startBtn").addEventListener("click", () => {
-      GameAudio.playClick();
-      GameAudio.unlock();
-      this.showGame();
-    });
-
-    document.getElementById("settingsBtn").addEventListener("click", () => {
-      GameAudio.playClick();
-      this.toggleSettings();
-    });
-
-    document.getElementById("settingsCloseBtn").addEventListener("click", () => {
-      GameAudio.playClick();
-      this.toggleSettings();
+    this.playTone(660, {
+      duration: 0.06,
+      type: "triangle",
+      gain: 0.3
     });
   },
 
-  showMenu() {
-    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById("menuScreen").classList.add("active");
-
-    if (Settings.music && !GameAudio.musicPlaying) {
-      GameAudio.startAmbientMusic();
-    }
+  playGameOver() {
+    this.playTone(220, {
+      duration: 0.22,
+      type: "sawtooth",
+      gain: 0.2,
+      slideTo: 70
+    });
   },
 
-  showGame() {
-    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById("gameScreen").classList.add("active");
+  playDefeatLong(durationMs = 3200) {
+    if (!this.soundEnabled) return;
 
-    Game.start();
+    this.ensure();
+
+    if (!this.ctx || !this.master) return;
+
+    const duration = durationMs / 1000;
+    const now = this.ctx.currentTime;
+
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(280, now);
+    osc1.frequency.exponentialRampToValueAtTime(55, now + duration);
+
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.28, now + 0.08);
+    gain1.gain.setValueAtTime(0.28, now + duration - 0.6);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc1.connect(gain1);
+    gain1.connect(this.master);
+
+    osc1.start(now);
+    osc1.stop(now + duration + 0.05);
+
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(140, now);
+    osc2.frequency.exponentialRampToValueAtTime(40, now + duration);
+
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.32, now + 0.1);
+    gain2.gain.setValueAtTime(0.32, now + duration - 0.6);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc2.connect(gain2);
+    gain2.connect(this.master);
+
+    osc2.start(now);
+    osc2.stop(now + duration + 0.05);
   },
 
-  toggleSettings() {
-    const panel = document.getElementById("settingsPanel");
-    panel.classList.toggle("active");
+  startMusic() {
+    this.ensure();
+
+    if (!this.ctx || !this.musicGain || !this.musicEnabled) return;
+    if (this.musicNodes.length > 0) return;
+
+    const now = this.ctx.currentTime;
+
+    this.musicGain.gain.cancelScheduledValues(now);
+    this.musicGain.gain.setValueAtTime(0.0001, now);
+    this.musicGain.gain.exponentialRampToValueAtTime(0.042, now + 1.6);
+
+    const freqs = [110, 164.81, 220];
+
+    freqs.forEach((freq, index) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      gain.gain.value = index === 0 ? 0.2 : 0.1;
+
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.detune.value = (index - 1) * 4;
+
+      if (this.ctx.createStereoPanner) {
+        const panner = this.ctx.createStereoPanner();
+        panner.pan.value = (index - 1) * 0.25;
+        osc.connect(gain);
+        gain.connect(panner);
+        panner.connect(this.musicGain);
+      } else {
+        osc.connect(gain);
+        gain.connect(this.musicGain);
+      }
+
+      osc.start();
+      this.musicNodes.push(osc, gain);
+    });
+
+    const lfo = this.ctx.createOscillator();
+    const lfoGain = this.ctx.createGain();
+
+    lfo.frequency.value = 0.06;
+    lfoGain.gain.value = 0.011;
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(this.musicGain.gain);
+
+    lfo.start();
+
+    this.musicNodes.push(lfo, lfoGain);
   },
 
-  updateSettingsUI() {
-    document.getElementById("soundBtn").classList.toggle("on", Settings.sound);
-    document.getElementById("musicBtn").classList.toggle("on", Settings.music);
-    document.getElementById("vibrationBtn").classList.toggle("on", Settings.vibration);
+  stopMusic() {
+    if (!this.ctx || !this.musicGain || this.musicNodes.length === 0) return;
 
-    const adBlockerBtn = document.getElementById("adBlockerBtn");
-    adBlockerBtn.classList.toggle("active", Settings.adsBlocked);
+    const now = this.ctx.currentTime;
+    const current = Math.max(this.musicGain.gain.value, 0.0001);
 
-    const statusEl = document.getElementById("adBlockerStatus");
-    if (statusEl) {
-      statusEl.textContent = Settings.adsBlocked ? "Publicités bloquées" : "Publicités activées";
-    }
+    this.musicGain.gain.cancelScheduledValues(now);
+    this.musicGain.gain.setValueAtTime(current, now);
+    this.musicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+    this.musicNodes.forEach(node => {
+      try {
+        if (node.stop) {
+          node.stop(now + 0.3);
+        }
+      } catch (error) {}
+
+      try {
+        node.disconnect();
+      } catch (error) {}
+    });
+
+    this.musicNodes = [];
   }
 };
-
-document.addEventListener("DOMContentLoaded", () => App.init());
