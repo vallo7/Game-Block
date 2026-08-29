@@ -21,7 +21,7 @@ const GameAudio = {
     this.ctx = new AudioContextClass();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.5;
+    this.master.gain.value = 0.8;
     this.master.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
@@ -61,7 +61,7 @@ const GameAudio = {
     const {
       duration = 0.08,
       type = "sine",
-      gain = 0.26,
+      gain = 0.3,
       slideTo = null,
       delay = 0
     } = options;
@@ -93,13 +93,13 @@ const GameAudio = {
     this.playTone(540, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.32
+      gain: 0.36
     });
 
     this.playTone(760, {
       duration: 0.04,
       type: "sine",
-      gain: 0.18,
+      gain: 0.22,
       delay: 0.02
     });
   },
@@ -109,7 +109,7 @@ const GameAudio = {
     this.playTone(freq, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.26
+      gain: 0.3
     });
   },
 
@@ -117,7 +117,7 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.04,
       type: "triangle",
-      gain: 0.16,
+      gain: 0.18,
       slideTo: 180
     });
   },
@@ -126,14 +126,14 @@ const GameAudio = {
     this.playTone(330, {
       duration: 0.08,
       type: "sine",
-      gain: 0.3,
+      gain: 0.34,
       slideTo: 430
     });
 
     this.playTone(520, {
       duration: 0.05,
       type: "triangle",
-      gain: 0.16,
+      gain: 0.18,
       delay: 0.03
     });
   },
@@ -142,7 +142,7 @@ const GameAudio = {
     this.playTone(190, {
       duration: 0.1,
       type: "triangle",
-      gain: 0.2,
+      gain: 0.22,
       slideTo: 110
     });
   },
@@ -155,7 +155,7 @@ const GameAudio = {
       this.playTone(base * Math.pow(1.19, i), {
         duration: 0.09,
         type: "triangle",
-        gain: 0.32,
+        gain: 0.36,
         delay: i * 0.032
       });
     }
@@ -164,8 +164,55 @@ const GameAudio = {
       this.playTone(base * 2, {
         duration: 0.18,
         type: "sine",
-        gain: 0.34,
+        gain: 0.38,
         delay: 0.12
+      });
+    }
+  },
+
+  playFreezeTick(index) {
+    this.playTone(700 + index * 90, {
+      duration: 0.05,
+      type: "sine",
+      gain: 0.14
+    });
+  },
+
+  playPraise(level) {
+    const base = 523;
+    const notes = 3 + level;
+
+    for (let i = 0; i < notes; i++) {
+      this.playTone(base * Math.pow(1.22, i), {
+        duration: 0.1,
+        type: "triangle",
+        gain: 0.34,
+        delay: i * 0.05
+      });
+    }
+
+    if (level >= 3) {
+      this.playTone(base / 2, {
+        duration: 0.3,
+        type: "sine",
+        gain: 0.3,
+        delay: 0.1
+      });
+    }
+
+    if (level >= 5) {
+      this.playTone(base * 3, {
+        duration: 0.2,
+        type: "sine",
+        gain: 0.3,
+        delay: 0.3
+      });
+
+      this.playTone(base * 4, {
+        duration: 0.2,
+        type: "sine",
+        gain: 0.24,
+        delay: 0.38
       });
     }
   },
@@ -177,7 +224,7 @@ const GameAudio = {
       this.playTone(base * Math.pow(1.26, i), {
         duration: 0.1,
         type: "triangle",
-        gain: 0.32,
+        gain: 0.36,
         delay: i * 0.05
       });
     }
@@ -187,7 +234,7 @@ const GameAudio = {
     this.playTone(110, {
       duration: 0.1,
       type: "square",
-      gain: 0.18,
+      gain: 0.2,
       slideTo: 70
     });
   },
@@ -196,7 +243,7 @@ const GameAudio = {
     this.playTone(660, {
       duration: 0.06,
       type: "triangle",
-      gain: 0.26
+      gain: 0.3
     });
   },
 
@@ -204,12 +251,12 @@ const GameAudio = {
     this.playTone(220, {
       duration: 0.22,
       type: "sawtooth",
-      gain: 0.18,
+      gain: 0.2,
       slideTo: 70
     });
   },
 
-  playDefeatLong(durationMs = 2000) {
+  playDefeatLong(durationMs = 3200) {
     if (!this.soundEnabled) return;
 
     this.ensure();
@@ -227,8 +274,8 @@ const GameAudio = {
     osc1.frequency.exponentialRampToValueAtTime(55, now + duration);
 
     gain1.gain.setValueAtTime(0.0001, now);
-    gain1.gain.exponentialRampToValueAtTime(0.26, now + 0.08);
-    gain1.gain.setValueAtTime(0.26, now + duration - 0.5);
+    gain1.gain.exponentialRampToValueAtTime(0.28, now + 0.08);
+    gain1.gain.setValueAtTime(0.28, now + duration - 0.6);
     gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     osc1.connect(gain1);
@@ -245,8 +292,8 @@ const GameAudio = {
     osc2.frequency.exponentialRampToValueAtTime(40, now + duration);
 
     gain2.gain.setValueAtTime(0.0001, now);
-    gain2.gain.exponentialRampToValueAtTime(0.3, now + 0.1);
-    gain2.gain.setValueAtTime(0.3, now + duration - 0.5);
+    gain2.gain.exponentialRampToValueAtTime(0.32, now + 0.1);
+    gain2.gain.setValueAtTime(0.32, now + duration - 0.6);
     gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     osc2.connect(gain2);
