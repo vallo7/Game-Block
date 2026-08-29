@@ -48,13 +48,20 @@ const Game = {
   lineBeams: [],
 
   cellAnims: {},
-  cancelAnims: [],
+  cancelAnims: {},
   cellFlashes: [],
   floatingTexts: [],
   particles: [],
   debris: [],
   shockwaves: [],
   lineFlashes: [],
+
+  cellPath: null,
+  glossPath: null,
+  shadePath: null,
+  iceGlossPath: null,
+  frameGradients: {},
+  glowCache: {},
 
   lastInvalidKey: null,
   lastInvalidTime: 0,
@@ -166,7 +173,7 @@ const Game = {
     this.afterGlow = null;
     this.lineBeams = [];
     this.cellAnims = {};
-    this.cancelAnims = [];
+    this.cancelAnims = {};
     this.cellFlashes = [];
     this.floatingTexts = [];
     this.particles = [];
@@ -296,10 +303,14 @@ const Game = {
     this.path = [];
   },
 
+  getDpr() {
+    return Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+  },
+
   resize() {
     if (!this.canvas) return;
 
-    const dpr = Math.max(window.devicePixelRatio || 1, 1);
+    const dpr = this.getDpr();
     const rect = this.canvas.getBoundingClientRect();
 
     const size = Math.floor(rect.width * dpr);
@@ -307,17 +318,93 @@ const Game = {
     if (size > 0) {
       this.canvas.width = size;
       this.canvas.height = size;
+      this.buildCellPaths();
     }
   },
 
   ensureCanvasSize() {
-    const dpr = Math.max(window.devicePixelRatio || 1, 1);
+    const dpr = this.getDpr();
     const target = Math.floor(this.canvas.clientWidth * dpr);
 
     if (target > 0 && this.canvas.width !== target) {
       this.canvas.width = target;
       this.canvas.height = target;
+      this.buildCellPaths();
     }
+  },
+
+  addRoundRect(path, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+
+    path.moveTo(x + radius, y);
+    path.arcTo(x + w, y, x + w, y + h, radius);
+    path.arcTo(x + w, y + h, x, y + h, radius);
+    path.arcTo(x, y + h, x, y, radius);
+    path.arcTo(x, y, x + w, y, radius);
+    path.closePath();
+  },
+
+  buildCellPaths() {
+    const cellSize = this.getCellSize();
+    const pad = cellSize * 0.035;
+    const box = cellSize - pad * 2;
+    const r = cellSize * 0.16;
+
+    this.cellPath = new Path2D();
+    this.addRoundRect(this.cellPath, pad, pad, box, box, r);
+
+    this.glossPath = new Path2D();
+    this.addRoundRect(this.glossPath, pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
+
+    this.shadePath = new Path2D();
+    this.addRoundRect(this.shadePath, pad + box * 0.1, pad + box * 0.74, box * 0.8, box * 0.16, r * 0.7);
+
+    this.iceGlossPath = new Path2D();
+    this.addRoundRect(this.iceGlossPath, pad + box * 0.12, pad + box * 0.1, box * 0.76, box * 0.2, r * 0.7);
+  },
+
+  buildFrameGradients() {
+    const cellSize = this.getCellSize();
+    const ctx = this.ctx;
+
+    let g = ctx.createLinearGradient(0, 0, 0, cellSize);
+    g.addColorStop(0, "#faf3e1");
+    g.addColorStop(1, "#e3d5b8");
+    this.frameGradients[1] = g;
+
+    g = ctx.createLinearGradient(0, 0, 0, cellSize);
+    g.addColorStop(0, "#faf3e1");
+    g.addColorStop(1, "#e0d2b4");
+    this.frameGradients[2] = g;
+
+    g = ctx.createLinearGradient(0, 0, 0, cellSize);
+    g.addColorStop(0, Theme.current.light);
+    g.addColorStop(1, Theme.current.dark);
+    this.frameGradients[3] = g;
+
+    g = ctx.createLinearGradient(0, 0, 0, cellSize);
+    g.addColorStop(0, "#ffffff");
+    g.addColorStop(1, "#9fd8ff");
+    this.frameGradients.ice = g;
+  },
+
+  getGlowSprite(rgb) {
+    if (this.glowCache[rgb]) return this.glowCache[rgb];
+
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 128;
+
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, `rgba(${rgb},1)`);
+    grad.addColorStop(1, `rgba(${rgb},0)`);
+
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+
+    this.glowCache[rgb] = c;
+    return c;
   },
 
   update(realDelta) {
@@ -359,12 +446,12 @@ const Game = {
   },
 
   getDifficulty() {
-    const turnFactor = Math.min(1, Math.max(0, (this.turn - 1) / 45));
-    const scoreFactor = Math.min(1, this.score / 8000);
+    const turnCurve = 1 - Math.exp(-this.turn / 60);
+    const scoreCurve = 1 - Math.exp(-this.score / 15000);
     const fill = this.getFillRatio();
-    const fillFactor = Math.min(1, Math.max(0, (fill - 0.35) / 0.4));
+    const fillCurve = Math.min(1, Math.max(0, (fill - 0.3) / 0.5));
 
-    return Math.min(1, turnFactor * 0.66 + scoreFactor * 0.24 + fillFactor * 0.2);
+    return Math.min(1, turnCurve * 0.6 + scoreCurve * 0.25 + fillCurve * 0.15);
   },
 
   getFillRatio() {
@@ -560,7 +647,7 @@ const Game = {
 
   maybeSpawnObstacles() {
     const diff = this.getDifficulty();
-    const interval = Math.max(2, 4 - Math.floor(diff * 2));
+    const interval = Math.max(2, 5 - Math.round(diff * 3));
 
     if (this.turnsSinceObstacle < interval) return;
 
@@ -1402,14 +1489,10 @@ const Game = {
   drawGlow(x, y, radius, rgb, alpha) {
     const ctx = this.ctx;
 
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-    gradient.addColorStop(1, `rgba(${rgb}, 0)`);
-
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(this.getGlowSprite(rgb), x - radius, y - radius, radius * 2, radius * 2);
     ctx.restore();
   },
 
@@ -1418,6 +1501,8 @@ const Game = {
     const now = this.gameNow;
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.buildFrameGradients();
 
     this.drawAmbientLight();
     this.drawBoard();
@@ -1476,28 +1561,22 @@ const Game = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+    ctx.strokeStyle = "rgba(250, 243, 225, 0.07)";
+    ctx.lineWidth = Math.max(1, cellSize * 0.012);
+
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
-        const px = x * cellSize;
-        const py = y * cellSize;
-        const pad = cellSize * 0.035;
-        const box = cellSize - pad * 2;
-        const radius = cellSize * 0.16;
-
         ctx.save();
-
-        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
-        this.roundRectPath(px + pad, py + pad, box, box, radius);
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(250, 243, 225, 0.07)";
-        ctx.lineWidth = Math.max(1, cellSize * 0.012);
-        this.roundRectPath(px + pad, py + pad, box, box, radius);
-        ctx.stroke();
-
+        ctx.translate(x * cellSize, y * cellSize);
+        ctx.fill(this.cellPath);
+        ctx.stroke(this.cellPath);
         ctx.restore();
       }
     }
+
+    ctx.restore();
   },
 
   getColorFxState(x, y, now) {
@@ -1622,64 +1701,42 @@ const Game = {
 
         this.drawCellAt(x, y, value, scale, alpha, shake);
 
-        if (glow > 0) {
-          const px = x * cellSize + shake;
-          const py = y * cellSize;
-          const pad = cellSize * 0.035;
-          const box = cellSize - pad * 2;
-          const radius = cellSize * 0.16;
+        const ctx = this.ctx;
+        const px = x * cellSize + shake;
+        const py = y * cellSize;
+        const center = cellSize / 2;
 
-          this.ctx.save();
-          this.ctx.globalAlpha = glow;
-          this.ctx.fillStyle = "#faf3e1";
-          this.roundRectPath(px + pad, py + pad, box, box, radius);
-          this.fillSafe();
-          this.ctx.restore();
+        if (glow > 0) {
+          ctx.save();
+          ctx.globalAlpha = glow;
+          ctx.translate(px + center, py + center);
+          ctx.translate(-center, -center);
+          ctx.fillStyle = "#faf3e1";
+          ctx.fill(this.cellPath);
+          ctx.restore();
         }
 
         const ice = this.getFreezeState(x, y, now);
 
         if (ice > 0) {
-          const px = x * cellSize + shake;
-          const py = y * cellSize;
-          const pad = cellSize * 0.035;
-          const box = cellSize - pad * 2;
-          const radius = cellSize * 0.16;
-          const center = cellSize / 2;
-
           const iceScale = 1 + 0.12 * Math.sin(ice * Math.PI);
-
-          const ctx = this.ctx;
 
           ctx.save();
           ctx.globalAlpha = ice * 0.92;
 
           ctx.translate(px + center, py + center);
           ctx.scale(iceScale, iceScale);
-          ctx.translate(-(px + center), -(py + center));
+          ctx.translate(-center, -center);
 
-          const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-          gradient.addColorStop(0, "#ffffff");
-          gradient.addColorStop(1, "#9fd8ff");
-
-          ctx.fillStyle = gradient;
-          this.roundRectPath(px + pad, py + pad, box, box, radius);
-          ctx.fill();
+          ctx.fillStyle = this.frameGradients.ice;
+          ctx.fill(this.cellPath);
 
           ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
           ctx.lineWidth = Math.max(1, cellSize * 0.03);
-          this.roundRectPath(px + pad, py + pad, box, box, radius);
-          ctx.stroke();
+          ctx.stroke(this.cellPath);
 
           ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-          this.roundRectPath(
-            px + pad + box * 0.12,
-            py + pad + box * 0.1,
-            box * 0.76,
-            box * 0.2,
-            radius * 0.7
-          );
-          ctx.fill();
+          ctx.fill(this.iceGlossPath);
 
           ctx.restore();
         }
@@ -1687,25 +1744,16 @@ const Game = {
         const after = this.getAfterGlowAlpha(x, y, now);
 
         if (after > 0) {
-          const px = x * cellSize + shake;
-          const py = y * cellSize;
-          const pad = cellSize * 0.035;
-          const box = cellSize - pad * 2;
-          const radius = cellSize * 0.16;
-
-          this.ctx.save();
-          this.ctx.globalAlpha = after;
-          this.ctx.fillStyle = "#ffffff";
-          this.roundRectPath(px + pad, py + pad, box, box, radius);
-          this.fillSafe();
-          this.ctx.restore();
+          ctx.save();
+          ctx.globalAlpha = after;
+          ctx.translate(px + center, py + center);
+          ctx.translate(-center, -center);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill(this.cellPath);
+          ctx.restore();
         }
       }
     }
-  },
-
-  fillSafe() {
-    this.ctx.fill();
   },
 
   drawCellAt(x, y, value, scale, alpha, shakeX = 0) {
@@ -1714,9 +1762,6 @@ const Game = {
 
     const px = x * cellSize + shakeX;
     const py = y * cellSize;
-    const pad = cellSize * 0.035;
-    const box = cellSize - pad * 2;
-    const radius = cellSize * 0.16;
     const center = cellSize / 2;
 
     ctx.save();
@@ -1725,61 +1770,16 @@ const Game = {
 
     ctx.translate(px + center, py + center);
     ctx.scale(scale, scale);
-    ctx.translate(-(px + center), -(py + center));
+    ctx.translate(-center, -center);
 
-    if (value === 1) {
-      ctx.shadowColor = "rgba(250, 243, 225, 0.35)";
-      ctx.shadowBlur = cellSize * 0.12;
-
-      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, "#faf3e1");
-      gradient.addColorStop(1, "#e3d5b8");
-
-      ctx.fillStyle = gradient;
-    } else if (value === 2) {
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = cellSize * 0.12;
-
-      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, "#faf3e1");
-      gradient.addColorStop(1, "#e0d2b4");
-
-      ctx.fillStyle = gradient;
-    } else {
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = cellSize * 0.1;
-
-      const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
-      gradient.addColorStop(0, Theme.current.light);
-      gradient.addColorStop(1, Theme.current.dark);
-
-      ctx.fillStyle = gradient;
-    }
-
-    this.roundRectPath(px + pad, py + pad, box, box, radius);
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
+    ctx.fillStyle = this.frameGradients[value] || "#ffffff";
+    ctx.fill(this.cellPath);
 
     ctx.fillStyle = "rgba(250, 243, 225, 0.4)";
-    this.roundRectPath(
-      px + pad + box * 0.10,
-      py + pad + box * 0.08,
-      box * 0.80,
-      box * 0.20,
-      radius * 0.7
-    );
-    ctx.fill();
+    ctx.fill(this.glossPath);
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-    this.roundRectPath(
-      px + pad + box * 0.10,
-      py + pad + box * 0.74,
-      box * 0.80,
-      box * 0.16,
-      radius * 0.7
-    );
-    ctx.fill();
+    ctx.fill(this.shadePath);
 
     ctx.restore();
   },
@@ -1796,20 +1796,24 @@ const Game = {
 
       const px = flash.x * cellSize;
       const py = flash.y * cellSize;
-      const pad = cellSize * 0.035;
-      const box = cellSize - pad * 2;
-      const radius = cellSize * 0.16;
+      const center = cellSize / 2;
 
       ctx.save();
 
       ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = alpha;
-      ctx.shadowColor = "rgba(250, 243, 225, 1)";
-      ctx.shadowBlur = cellSize * 0.55;
-      ctx.fillStyle = "#faf3e1";
 
-      this.roundRectPath(px + pad, py + pad, box, box, radius);
-      ctx.fill();
+      ctx.globalAlpha = alpha * 0.35;
+      ctx.translate(px + center, py + center);
+      ctx.scale(1.25, 1.25);
+      ctx.translate(-center, -center);
+      ctx.fillStyle = "#faf3e1";
+      ctx.fill(this.cellPath);
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = alpha;
+      ctx.translate(px + center, py + center);
+      ctx.translate(-center, -center);
+      ctx.fill(this.cellPath);
 
       ctx.restore();
     }
@@ -1838,8 +1842,8 @@ const Game = {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
-      ctx.shadowBlur = 12;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.fillText(item.text, 0, 4);
 
       ctx.fillStyle = item.color;
       ctx.fillText(item.text, 0, 0);
@@ -1872,11 +1876,20 @@ const Game = {
     ctx.save();
 
     ctx.globalCompositeOperation = "lighter";
+
+    ctx.strokeStyle = `rgba(250, 243, 225, ${alpha * 0.4})`;
+    ctx.lineWidth = thickness * 1.8;
+    this.roundRectPath(
+      this.canvas.width / 2 - size,
+      this.canvas.height / 2 - size,
+      size * 2,
+      size * 2,
+      30
+    );
+    ctx.stroke();
+
     ctx.strokeStyle = `rgba(250, 243, 225, ${alpha})`;
     ctx.lineWidth = thickness;
-    ctx.shadowColor = "rgba(250, 243, 225, 0.9)";
-    ctx.shadowBlur = 30 + level * 10;
-
     this.roundRectPath(
       this.canvas.width / 2 - size,
       this.canvas.height / 2 - size,
@@ -2028,9 +2041,6 @@ const Game = {
 
       const px = anim.x * cellSize;
       const py = anim.y * cellSize;
-      const pad = cellSize * 0.035;
-      const box = cellSize - pad * 2;
-      const radius = cellSize * 0.16;
       const center = cellSize / 2;
 
       ctx.save();
@@ -2039,11 +2049,10 @@ const Game = {
 
       ctx.translate(px + center, py + center);
       ctx.scale(scale, scale);
-      ctx.translate(-(px + center), -(py + center));
+      ctx.translate(-center, -center);
 
       ctx.fillStyle = "#ef4444";
-      this.roundRectPath(px + pad, py + pad, box, box, radius);
-      ctx.fill();
+      ctx.fill(this.cellPath);
 
       ctx.restore();
     }
