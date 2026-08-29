@@ -146,11 +146,11 @@ button {
   100% { transform: translate(0, 0) rotate(360deg); }
 }
 
-/* ---------- BOUTONS RAPIDES (colonne verticale, petits) ---------- */
+/* ---------- BOUTONS RAPIDES (plus haut) ---------- */
 
 .quick-settings {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top));
+  top: calc(6px + env(safe-area-inset-top));
   left: 12px;
   display: flex;
   flex-direction: column;
@@ -182,7 +182,7 @@ button {
   box-shadow: var(--candy-inset), var(--chunk-small), 0 0 18px rgba(0, 166, 255, 0.5);
 }
 
-/* ---------- BOUTON PUBS (attractif, à droite, hauteur d'œil) ---------- */
+/* ---------- BOUTON PUBS ---------- */
 
 .ad-row {
   display: flex;
@@ -291,7 +291,7 @@ button {
   82% { transform: scale(0.985); }
 }
 
-/* ---------- HALO ---------- */
+/* ---------- HALO (plus lent, plus épais, plus brillant) ---------- */
 
 #haloWave {
   position: absolute;
@@ -312,15 +312,15 @@ button {
 }
 
 #haloWave.thick {
-  border-width: 20px;
+  border-width: 26px;
   box-shadow:
-    0 0 90px var(--theme-light),
-    0 0 180px var(--theme-light),
-    inset 0 0 60px var(--theme-light);
+    0 0 110px var(--theme-light),
+    0 0 220px var(--theme-light),
+    inset 0 0 70px var(--theme-light);
 }
 
 #haloWave.play {
-  animation: haloOut 450ms cubic-bezier(0.22, 1, 0.36, 1) 450ms forwards;
+  animation: haloOut 600ms cubic-bezier(0.22, 1, 0.36, 1) 800ms forwards;
 }
 
 @keyframes haloOut {
@@ -345,20 +345,20 @@ button {
   100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0; }
 }
 
-/* ---------- ZONE FEEDBACK (au-dessus du score, sans chevauchement) ---------- */
+/* ---------- ZONE FEEDBACK ---------- */
 
 .score-wrap {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .feedback-zone {
   position: relative;
   width: 100%;
-  height: 96px;
+  height: 84px;
   pointer-events: none;
 }
 
@@ -586,14 +586,14 @@ button {
 .mode-text small { color: rgba(250, 243, 225, 0.9); font-size: 12px; font-weight: 800; }
 .mode-action { width: 34px; height: 34px; display: grid; place-items: center; padding: 5px; }
 
-/* ---------- GAME ---------- */
+/* ---------- GAME (contenu décalé vers le haut) ---------- */
 
 #gameScreen {
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 8px;
+  gap: 4px;
   padding:
-    calc(12px + env(safe-area-inset-top))
+    calc(8px + env(safe-area-inset-top))
     12px
     calc(12px + env(safe-area-inset-bottom));
   max-width: 560px;
@@ -622,7 +622,12 @@ button {
 .best-score span:last-child { font-size: 20px; font-weight: 900; }
 .best-score span:last-child.score-bump { animation: scoreBump 340ms var(--spring); }
 
-.game-center { display: flex; align-items: center; justify-content: center; min-height: 0; }
+.game-center {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 0;
+}
 
 .board-frame { width: var(--board-size); max-width: 100%; }
 
@@ -666,7 +671,7 @@ canvas {
   background: rgba(0, 0, 0, 0.1);
 }
 
-.available-row { display: flex; justify-content: center; margin-top: 10px; }
+.available-row { display: flex; justify-content: center; margin-top: 8px; }
 
 .available-pill {
   display: inline-flex;
@@ -734,8 +739,6 @@ canvas {
 .overlay:not(.hidden) .gameover-panel {
   animation: panelPop 260ms var(--spring) forwards;
 }
-
-/* ---------- SETTINGS (même design qu'à l'accueil) ---------- */
 
 .settings-panel { width: min(100%, 300px); }
 
@@ -810,8 +813,6 @@ canvas {
 .restart-game-btn:active { transform: translateY(2px) scale(0.97); }
 
 .restart-icon { width: 18px; height: 18px; display: grid; place-items: center; }
-
-/* ---------- GAME OVER ---------- */
 
 .gameover-panel {
   width: min(100%, 290px);
@@ -962,5 +963,5 @@ canvas {
 @media (max-height: 700px) {
   :root { --board-size: min(96vw, 480px, calc(100svh - 215px)); }
   .current-score { font-size: 44px; }
-  .feedback-zone { height: 78px; }
-}
+  .feedback-zone { height: 70px; }
+  }
