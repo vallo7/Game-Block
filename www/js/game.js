@@ -50,6 +50,7 @@ const Game = {
 
   cellAnims: {},
   cancelAnims: {},
+  destroyAnims: [],
   cellFlashes: [],
   floatingTexts: [],
   particles: [],
@@ -77,8 +78,10 @@ const Game = {
       const el = document.createElement("div");
       el.id = "praiseBadge";
       el.className = "praise-badge hidden";
-      const shell = document.querySelector(".board-shell");
-      if (shell) shell.appendChild(el);
+      const zone =
+        document.getElementById("feedbackZone") ||
+        document.querySelector(".board-shell");
+      if (zone) zone.appendChild(el);
     }
 
     this.bindEvents();
@@ -134,7 +137,6 @@ const Game = {
       clearTimeout(this.freezeTimeout);
       this.freezeTimeout = null;
     }
-
     if (this.popupTimeout) {
       clearTimeout(this.popupTimeout);
       this.popupTimeout = null;
@@ -183,6 +185,7 @@ const Game = {
     this.lineBeams = [];
     this.cellAnims = {};
     this.cancelAnims = [];
+    this.destroyAnims = [];
     this.cellFlashes = [];
     this.floatingTexts = [];
     this.particles = [];
@@ -276,16 +279,7 @@ const Game = {
       this.cancelPath(false);
     });
 
-    // Boutons du pop-up de défaite : liaison sécurisée
-    // (fonctionne avec l'ancien ET le nouveau pop-up)
-    this.on("gameoverHomeBtn", () => {
-      GameAudio.playClick();
-      setTimeout(() => {
-        this.stopCountdown();
-        App.showMenu();
-      }, 200);
-    });
-
+    // Bouton CONTINUER (pub) : plus gros / mis en avant dans le pop-up
     this.on("adsBtn", () => {
       GameAudio.playClick();
       setTimeout(() => {
@@ -294,6 +288,7 @@ const Game = {
       }, 250);
     });
 
+    // Bouton RESTART : séquence de redémarrage animée
     this.on("restartBtn", () => {
       GameAudio.playClick();
       this.startNewGameSequence();
@@ -1039,6 +1034,17 @@ const Game = {
         start: this.gameNow,
         duration: 800
       };
+
+      const screen = document.getElementById("gameScreen");
+      if (screen) {
+        screen.classList.remove("quake");
+        void screen.offsetWidth;
+        screen.classList.add("quake");
+
+        setTimeout(() => {
+          screen.classList.remove("quake");
+        }, 900);
+      }
     }
 
     if (level >= 3) {
@@ -1168,6 +1174,13 @@ const Game = {
       this.cellFlashes.push({
         x,
         y,
+        start: this.gameNow + (i % 8) * 22
+      });
+
+      this.destroyAnims.push({
+        x,
+        y,
+        value,
         start: this.gameNow + (i % 8) * 22
       });
 
@@ -1361,9 +1374,7 @@ const Game = {
       });
 
       const scoreEl = document.getElementById("currentScore");
-      if (scoreEl) {
-        scoreEl.classList.add("score-reset");
-      }
+      if (scoreEl) scoreEl.classList.add("score-reset");
 
       this.score = 0;
 
@@ -1573,6 +1584,7 @@ const Game = {
     this.drawBoard();
     this.drawPathLine();
     this.drawCells();
+    this.drawDestroyAnims(now);
     this.drawCellFlashes(now);
     this.drawLineFlashes(now);
     this.drawLineBeams(now);
@@ -1871,6 +1883,50 @@ const Game = {
     ctx.restore();
   },
 
+  drawDestroyAnims(now) {
+    const ctx = this.ctx;
+    const cellSize = this.getCellSize();
+
+    this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < 320);
+
+    const pad = cellSize * 0.035;
+    const box = cellSize - pad * 2;
+    const r = cellSize * 0.16;
+    const center = cellSize / 2;
+
+    for (const a of this.destroyAnims) {
+      const t = (now - a.start) / 320;
+
+      const grow = t < 0.3
+        ? 1 + 0.3 * (t / 0.3)
+        : 1.3 * (1 - (t - 0.3) / 0.7);
+
+      const alpha = 1 - t;
+      const rot = (t * 0.5) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
+
+      const px = a.x * cellSize;
+      const py = a.y * cellSize;
+
+      ctx.save();
+
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.translate(px + center, py + center);
+      ctx.rotate(rot);
+      ctx.scale(Math.max(0.01, grow), Math.max(0.01, grow));
+      ctx.translate(-center, -center);
+
+      ctx.fillStyle = this.frameGradients[a.value] || "#ffffff";
+      this.roundRectPath(pad, pad, box, box, r);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(250, 243, 225, 0.4)";
+      this.roundRectPath(pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  },
+
   drawCellFlashes(now) {
     const ctx = this.ctx;
     const cellSize = this.getCellSize();
@@ -1894,7 +1950,7 @@ const Game = {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = alpha * 0.35;
       ctx.translate(px + center, py + center);
-      ctx.scale(1.25, 1.25);
+      ctx.scale(1.25 + 0.15 * t, 1.25 + 0.15 * t);
       ctx.translate(-center, -center);
       ctx.fillStyle = "#faf3e1";
       this.roundRectPath(pad, pad, box, box, r);
@@ -1907,6 +1963,7 @@ const Game = {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = alpha;
       ctx.translate(px + center, py + center);
+      ctx.scale(1 + 0.3 * t, 1 + 0.3 * t);
       ctx.translate(-center, -center);
       ctx.fillStyle = "#faf3e1";
       this.roundRectPath(pad, pad, box, box, r);
