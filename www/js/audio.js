@@ -287,6 +287,15 @@ const GameAudio = {
     this.playTone(700 + index * 90, { duration: 0.05, type: "sine", gain: 0.14 });
   },
 
+  playBlockDisappear(index) {
+    this.playTone(620 - (index % 14) * 28, {
+      duration: 0.05,
+      type: "sine",
+      gain: 0.1,
+      slideTo: 300
+    });
+  },
+
   playPraise(level) {
     const base = 523;
     const notes = 3 + level;
