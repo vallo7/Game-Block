@@ -45,8 +45,13 @@ jobs:
             # Supprime l'icône adaptative par défaut
             rm -rf android/app/src/main/res/mipmap-anydpi-v26
 
+            # Calcule la taille du carré central
+            W=$(identify -format "%w" icon.png)
+            H=$(identify -format "%h" icon.png)
+            S=$(( W < H ? W : H ))
+
             # Recadre au centre en carré parfait
-            convert icon.png -gravity center -crop "%[fx:min(w,h)]x%[fx:min(w,h)]+0+0" +repage /tmp/icon_square.png
+            convert icon.png -gravity center -crop ${S}x${S}+0+0 +repage /tmp/icon_square.png
 
             # Base haute résolution 1024x1024
             convert /tmp/icon_square.png -resize 1024x1024 /tmp/icon_1024.png
@@ -63,7 +68,7 @@ jobs:
               cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
             done
 
-            echo "Custom icon generated."
+            echo "Custom icon generated (${S}x${S} source crop)."
           else
             echo "icon.png not found, keeping default icon."
           fi
