@@ -26,6 +26,7 @@ const Game = {
 
   combo: 0,
   comboUntil: 0,
+  praiseUntil: 0,
 
   timeScale: 1,
   lastFrame: null,
@@ -36,12 +37,14 @@ const Game = {
   countdown: 0,
   countdownTimer: null,
   freezeTimeout: null,
-  defeatSoundTimeout: null,
   popupTimeout: null,
 
   colorFx: null,
   freezeFx: null,
   freezeDelays: {},
+  lightWave: null,
+  blockShake: null,
+  afterGlow: null,
   lineBeams: [],
 
   cellAnims: {},
@@ -65,6 +68,13 @@ const Game = {
 
     const bestEl = document.getElementById("bestScoreValue");
     bestEl.textContent = this.best;
+
+    if (!document.getElementById("praiseBadge")) {
+      const el = document.createElement("div");
+      el.id = "praiseBadge";
+      el.className = "praise-badge hidden";
+      document.querySelector(".board-shell").appendChild(el);
+    }
 
     this.bindEvents();
     this.resize();
@@ -110,11 +120,6 @@ const Game = {
       this.freezeTimeout = null;
     }
 
-    if (this.defeatSoundTimeout) {
-      clearTimeout(this.defeatSoundTimeout);
-      this.defeatSoundTimeout = null;
-    }
-
     if (this.popupTimeout) {
       clearTimeout(this.popupTimeout);
       this.popupTimeout = null;
@@ -141,6 +146,7 @@ const Game = {
 
     this.combo = 0;
     this.comboUntil = 0;
+    this.praiseUntil = 0;
     this.timeScale = 1;
 
     this.gameOver = false;
@@ -155,6 +161,9 @@ const Game = {
     this.colorFx = null;
     this.freezeFx = null;
     this.freezeDelays = {};
+    this.lightWave = null;
+    this.blockShake = null;
+    this.afterGlow = null;
     this.lineBeams = [];
     this.cellAnims = {};
     this.cancelAnims = [];
@@ -174,6 +183,7 @@ const Game = {
 
     document.getElementById("gameOverOverlay").classList.add("hidden");
     document.getElementById("comboBadge").classList.add("hidden");
+    document.getElementById("praiseBadge").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("quake");
 
     document.getElementById("currentScore").textContent = "0";
@@ -340,6 +350,12 @@ const Game = {
     if (!badge.classList.contains("hidden") && this.gameNow > this.comboUntil) {
       badge.classList.add("hidden");
     }
+
+    const praise = document.getElementById("praiseBadge");
+
+    if (!praise.classList.contains("hidden") && this.gameNow > this.praiseUntil) {
+      praise.classList.add("hidden");
+    }
   },
 
   getDifficulty() {
@@ -431,6 +447,53 @@ const Game = {
     }
 
     return false;
+  },
+
+  largestPathLength() {
+    let bestLen = 0;
+
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ];
+
+    const dfs = (x, y, depth, visited) => {
+      if (depth > bestLen) bestLen = depth;
+      if (depth === 6) return;
+
+      const key = y * this.SIZE + x;
+      visited.add(key);
+
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        if (
+          nx >= 0 && nx < this.SIZE &&
+          ny >= 0 && ny < this.SIZE &&
+          this.cells[ny][nx] === 0 &&
+          !visited.has(ny * this.SIZE + nx)
+        ) {
+          dfs(nx, ny, depth + 1, visited);
+        }
+      }
+
+      visited.delete(key);
+    };
+
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] !== 0) continue;
+
+        dfs(x, y, 1, new Set());
+
+        if (bestLen === 6) return 6;
+      }
+    }
+
+    return bestLen;
   },
 
   generateRequiredBlocks() {
@@ -830,6 +893,20 @@ const Game = {
         void badge.offsetWidth;
         badge.classList.add(emptied ? "mega" : "pop");
       }
+
+      if (count >= 3 || this.combo >= 2) {
+        const power = count + this.combo;
+
+        let level = 1;
+        if (power >= 12) level = 5;
+        else if (power >= 9) level = 4;
+        else if (power >= 7) level = 3;
+        else if (power >= 5) level = 2;
+
+        if (emptied) level = 4;
+
+        this.showPraise(level, emptied);
+      }
     } else {
       this.comboUntil = this.gameNow + 1800;
     }
@@ -853,6 +930,44 @@ const Game = {
     if (count === 3) return "#ffb100";
     if (count === 2) return Theme.current.light;
     return "#faf3e1";
+  },
+
+  showPraise(level, emptied) {
+    const words = ["NICE!", "GREAT!", "AWESOME!", "AMAZING!", "UNREAL!"];
+
+    const badge = document.getElementById("praiseBadge");
+
+    badge.textContent = words[level - 1];
+    badge.className = `praise-badge l${level}`;
+    void badge.offsetWidth;
+    badge.classList.add("show");
+
+    this.praiseUntil = this.gameNow + 1200 + level * 250;
+
+    GameAudio.playPraise(level);
+    Haptics.vibrate(30 + level * 15);
+
+    if (level >= 3 && !emptied) {
+      this.lightWave = {
+        start: this.gameNow,
+        level
+      };
+    }
+
+    if (level >= 5) {
+      this.blockShake = {
+        start: this.gameNow,
+        duration: 800
+      };
+    }
+
+    if (level >= 3) {
+      this.afterGlow = {
+        start: this.gameNow,
+        level,
+        duration: 3000 + level * 800
+      };
+    }
   },
 
   addFloatingText(text, x, y, color) {
@@ -900,9 +1015,9 @@ const Game = {
     }, 900);
 
     const halo = document.getElementById("haloWave");
-    halo.classList.remove("play");
+    halo.classList.remove("play", "thick");
     void halo.offsetWidth;
-    halo.classList.add("play");
+    halo.classList.add("play", "thick");
   },
 
   processClears() {
@@ -1040,17 +1155,14 @@ const Game = {
 
     this.freezeTimeout = setTimeout(() => {
       this.freezeTimeout = null;
-      this.startFreeze();
 
-      this.defeatSoundTimeout = setTimeout(() => {
-        this.defeatSoundTimeout = null;
-        GameAudio.playDefeatLong(2000);
-      }, 1000);
+      this.startFreeze();
+      GameAudio.playDefeatLong(3200);
 
       this.popupTimeout = setTimeout(() => {
         this.popupTimeout = null;
         this.startGameOver();
-      }, 3000);
+      }, 3400);
     }, 2000);
   },
 
@@ -1065,13 +1177,19 @@ const Game = {
       const x = cellIndex % this.SIZE;
       const y = Math.floor(cellIndex / this.SIZE);
 
-      this.freezeDelays[`${x},${y}`] = position * (3000 / (this.SIZE * this.SIZE));
+      this.freezeDelays[`${x},${y}`] = position * (2800 / (this.SIZE * this.SIZE));
     });
 
     this.freezeFx = {
       start: this.gameNow,
       duration: 3000
     };
+
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => {
+        GameAudio.playFreezeTick(i);
+      }, i * 360);
+    }
   },
 
   startGameOver() {
@@ -1119,6 +1237,30 @@ const Game = {
     }
   },
 
+  ensurePlayable() {
+    let guard = 0;
+
+    while (!this.hasPossibleMove() && guard < 5) {
+      const row = Math.floor(Math.random() * this.SIZE);
+
+      for (let x = 0; x < this.SIZE; x++) {
+        this.spawnDebris(x, row, "#faf3e1", 2);
+        this.cells[row][x] = 0;
+      }
+
+      this.lineFlashes.push({ type: "row", index: row, start: this.gameNow });
+
+      guard++;
+    }
+
+    if (!this.hasPossibleMove()) {
+      const maxPath = this.largestPathLength();
+
+      this.requiredBlocks = Math.max(1, Math.min(this.requiredBlocks, maxPath));
+      this.updateHUD();
+    }
+  },
+
   revive() {
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
@@ -1130,18 +1272,7 @@ const Game = {
       }
     }
 
-    if (this.isGridFull()) {
-      const rows = this.shuffleArray([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 2);
-
-      for (const y of rows) {
-        for (let x = 0; x < this.SIZE; x++) {
-          this.spawnDebris(x, y, "#faf3e1", 2);
-          this.cells[y][x] = 0;
-        }
-
-        this.lineFlashes.push({ type: "row", index: y, start: this.gameNow });
-      }
-    }
+    this.ensurePlayable();
 
     this.gameOver = false;
     this.freezeFx = null;
@@ -1295,6 +1426,7 @@ const Game = {
     this.drawCellFlashes(now);
     this.drawLineFlashes(now);
     this.drawLineBeams(now);
+    this.drawLightWave(now);
     this.drawShockwaves(now);
     this.drawCancelAnims(now);
     this.drawFloatingTexts(now);
@@ -1386,14 +1518,14 @@ const Game = {
     const d = wave - ring;
     let glow = 0;
 
-    if (d > -0.6 && d < 1.4) {
-      glow = 0.4 * Math.max(0, 1 - Math.abs(d - 0.4) / 1);
+    if (d > -0.9 && d < 1.7) {
+      glow = 0.6 * Math.max(0, 1 - Math.abs(d - 0.4) / 1.3);
     }
 
     return { pulse, glow };
   },
 
-  getFreezeAlpha(x, y, now) {
+  getFreezeState(x, y, now) {
     if (!this.freezeFx) return 0;
 
     const delay = this.freezeDelays[`${x},${y}`] ?? 0;
@@ -1402,6 +1534,42 @@ const Game = {
     if (ft <= 0) return 0;
 
     return Math.min(1, ft / 220);
+  },
+
+  getShakeOffset(x, y, now) {
+    if (!this.blockShake) return 0;
+
+    const age = now - this.blockShake.start;
+
+    if (age > this.blockShake.duration) {
+      this.blockShake = null;
+      return 0;
+    }
+
+    const power = 1 - age / this.blockShake.duration;
+    const phase = (x * 13 + y * 7) * 40;
+
+    return Math.sin((now + phase) / 26) * this.getCellSize() * 0.07 * power;
+  },
+
+  getAfterGlowAlpha(x, y, now) {
+    if (!this.afterGlow) return 0;
+
+    const age = now - this.afterGlow.start;
+
+    if (age > this.afterGlow.duration) {
+      this.afterGlow = null;
+      return 0;
+    }
+
+    const level = this.afterGlow.level;
+    const fade = 1 - age / this.afterGlow.duration;
+    const speed = 150 - level * 22;
+    const phase = (x * 7 + y * 13) * 0.7;
+
+    const flicker = (Math.sin(now / speed + phase) + 1) / 2;
+
+    return (0.06 + level * 0.05) * flicker * fade;
   },
 
   drawCells() {
@@ -1425,6 +1593,7 @@ const Game = {
 
         if (value === 0) continue;
 
+        const shake = this.getShakeOffset(x, y, now);
         const anim = this.cellAnims[`${x},${y}`];
         let scale = 1;
         let alpha = 1;
@@ -1451,10 +1620,10 @@ const Game = {
           glow = fx.glow;
         }
 
-        this.drawCellAt(x, y, value, scale, alpha);
+        this.drawCellAt(x, y, value, scale, alpha, shake);
 
         if (glow > 0) {
-          const px = x * cellSize;
+          const px = x * cellSize + shake;
           const py = y * cellSize;
           const pad = cellSize * 0.035;
           const box = cellSize - pad * 2;
@@ -1464,23 +1633,30 @@ const Game = {
           this.ctx.globalAlpha = glow;
           this.ctx.fillStyle = "#faf3e1";
           this.roundRectPath(px + pad, py + pad, box, box, radius);
-          this.ctx.fill();
+          this.fillSafe();
           this.ctx.restore();
         }
 
-        const ice = this.getFreezeAlpha(x, y, now);
+        const ice = this.getFreezeState(x, y, now);
 
         if (ice > 0) {
-          const px = x * cellSize;
+          const px = x * cellSize + shake;
           const py = y * cellSize;
           const pad = cellSize * 0.035;
           const box = cellSize - pad * 2;
           const radius = cellSize * 0.16;
+          const center = cellSize / 2;
+
+          const iceScale = 1 + 0.12 * Math.sin(ice * Math.PI);
 
           const ctx = this.ctx;
 
           ctx.save();
           ctx.globalAlpha = ice * 0.92;
+
+          ctx.translate(px + center, py + center);
+          ctx.scale(iceScale, iceScale);
+          ctx.translate(-(px + center), -(py + center));
 
           const gradient = ctx.createLinearGradient(px, py, px, py + cellSize);
           gradient.addColorStop(0, "#ffffff");
@@ -1507,15 +1683,36 @@ const Game = {
 
           ctx.restore();
         }
+
+        const after = this.getAfterGlowAlpha(x, y, now);
+
+        if (after > 0) {
+          const px = x * cellSize + shake;
+          const py = y * cellSize;
+          const pad = cellSize * 0.035;
+          const box = cellSize - pad * 2;
+          const radius = cellSize * 0.16;
+
+          this.ctx.save();
+          this.ctx.globalAlpha = after;
+          this.ctx.fillStyle = "#ffffff";
+          this.roundRectPath(px + pad, py + pad, box, box, radius);
+          this.fillSafe();
+          this.ctx.restore();
+        }
       }
     }
   },
 
-  drawCellAt(x, y, value, scale, alpha) {
+  fillSafe() {
+    this.ctx.fill();
+  },
+
+  drawCellAt(x, y, value, scale, alpha, shakeX = 0) {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    const px = x * cellSize;
+    const px = x * cellSize + shakeX;
     const py = y * cellSize;
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
@@ -1605,9 +1802,10 @@ const Game = {
 
       ctx.save();
 
-      ctx.globalAlpha = alpha * 0.9;
-      ctx.shadowColor = "rgba(250, 243, 225, 0.9)";
-      ctx.shadowBlur = cellSize * 0.35;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = "rgba(250, 243, 225, 1)";
+      ctx.shadowBlur = cellSize * 0.55;
       ctx.fillStyle = "#faf3e1";
 
       this.roundRectPath(px + pad, py + pad, box, box, radius);
@@ -1648,6 +1846,47 @@ const Game = {
 
       ctx.restore();
     }
+  },
+
+  drawLightWave(now) {
+    if (!this.lightWave) return;
+
+    const age = now - this.lightWave.start;
+    const duration = 900;
+
+    if (age > duration) {
+      this.lightWave = null;
+      return;
+    }
+
+    const p = age / duration;
+    const level = this.lightWave.level;
+
+    const maxR = this.canvas.width * (0.55 + level * 0.25);
+    const size = p * maxR;
+    const thickness = this.getCellSize() * (0.25 + level * 0.12);
+    const alpha = (0.3 + level * 0.1) * (1 - p * 0.6);
+
+    const ctx = this.ctx;
+
+    ctx.save();
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `rgba(250, 243, 225, ${alpha})`;
+    ctx.lineWidth = thickness;
+    ctx.shadowColor = "rgba(250, 243, 225, 0.9)";
+    ctx.shadowBlur = 30 + level * 10;
+
+    this.roundRectPath(
+      this.canvas.width / 2 - size,
+      this.canvas.height / 2 - size,
+      size * 2,
+      size * 2,
+      30
+    );
+    ctx.stroke();
+
+    ctx.restore();
   },
 
   drawPathLine() {
