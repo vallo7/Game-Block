@@ -62,6 +62,10 @@ const Game = {
   lastInvalidKey: null,
   lastInvalidTime: 0,
 
+  waveAnim: null,
+  wavePhase: 0,
+  waveCells: [],
+
   init() {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
@@ -76,6 +80,13 @@ const Game = {
       const el = document.createElement("div");
       el.id = "praiseBadge";
       el.className = "praise-badge hidden";
+      document.querySelector(".board-shell").appendChild(el);
+    }
+
+    if (!document.getElementById("comboBadge")) {
+      const el = document.createElement("div");
+      el.id = "comboBadge";
+      el.className = "combo-badge hidden";
       document.querySelector(".board-shell").appendChild(el);
     }
 
@@ -94,7 +105,7 @@ const Game = {
           this.update(realDelta);
           this.draw();
         } catch (error) {
-          // garde-fou : le loop ne meurt jamais
+          console.error("Game loop error:", error);
         }
       }
 
@@ -102,6 +113,10 @@ const Game = {
     };
 
     requestAnimationFrame(tick);
+
+    this.setupMenuAnimations();
+    this.setupSettingsButtons();
+    this.setupAdBlockerButton();
   },
 
   start() {
@@ -180,6 +195,9 @@ const Game = {
     this.debris = [];
     this.shockwaves = [];
     this.lineFlashes = [];
+    this.waveAnim = null;
+    this.wavePhase = 0;
+    this.waveCells = [];
 
     this.queue = [];
     for (let i = 0; i < 3; i++) {
@@ -277,10 +295,86 @@ const Game = {
       }, 250);
     });
 
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      GameAudio.playClick();
+      this.startRestartSequence();
+    });
+
     window.addEventListener("resize", () => this.resize());
     window.addEventListener("orientationchange", () => {
       setTimeout(() => this.resize(), 120);
     });
+  },
+
+  setupMenuAnimations() {
+    const bg = document.getElementById("menuBackground");
+    if (!bg) return;
+
+    const blocks = [];
+    const numBlocks = 12;
+
+    for (let i = 0; i < numBlocks; i++) {
+      const block = document.createElement("div");
+      block.className = "floating-block";
+      block.style.left = Math.random() * 100 + "%";
+      block.style.top = Math.random() * 100 + "%";
+      block.style.width = (20 + Math.random() * 40) + "px";
+      block.style.height = (20 + Math.random() * 40) + "px";
+      block.style.animationDelay = Math.random() * 10 + "s";
+      block.style.opacity = 0.08 + Math.random() * 0.08;
+      bg.appendChild(block);
+      blocks.push(block);
+    }
+
+    setInterval(() => {
+      blocks.forEach((block, i) => {
+        block.style.transform = `translate(${Math.sin(Date.now() / 2000 + i) * 30}px, ${Math.cos(Date.now() / 1500 + i) * 30}px)`;
+      });
+    }, 16);
+  },
+
+  setupSettingsButtons() {
+    const soundBtn = document.getElementById("soundBtn");
+    const musicBtn = document.getElementById("musicBtn");
+    const vibrationBtn = document.getElementById("vibrationBtn");
+
+    [soundBtn, musicBtn, vibrationBtn].forEach(btn => {
+      btn.addEventListener("click", () => {
+        GameAudio.playClick();
+        btn.classList.toggle("on");
+        Haptics.vibrate(20);
+
+        const isActive = btn.classList.contains("on");
+        if (btn.id === "soundBtn") Settings.sound = isActive;
+        if (btn.id === "musicBtn") Settings.music = isActive;
+        if (btn.id === "vibrationBtn") Settings.vibration = isActive;
+      });
+    });
+  },
+
+  setupAdBlockerButton() {
+    const adBlockerBtn = document.getElementById("adBlockerBtn");
+    if (!adBlockerBtn) return;
+
+    adBlockerBtn.addEventListener("click", () => {
+      GameAudio.playClick();
+      Haptics.vibrate([30, 20, 30]);
+
+      Settings.adsBlocked = !Settings.adsBlocked;
+      adBlockerBtn.classList.toggle("active");
+
+      const statusEl = document.getElementById("adBlockerStatus");
+      if (statusEl) {
+        statusEl.textContent = Settings.adsBlocked ? "Publicités bloquées" : "Publicités activées";
+      }
+    });
+
+    setInterval(() => {
+      if (!Settings.adsBlocked) {
+        adBlockerBtn.classList.add("pulse");
+        setTimeout(() => adBlockerBtn.classList.remove("pulse"), 300);
+      }
+    }, 2000);
   },
 
   updatePointer(event, active) {
@@ -410,6 +504,19 @@ const Game = {
 
     if (!praise.classList.contains("hidden") && this.gameNow > this.praiseUntil) {
       praise.classList.add("hidden");
+    }
+
+    if (this.waveAnim) {
+      const age = this.gameNow - this.waveAnim.start;
+      const progress = age / this.waveAnim.duration;
+
+      if (progress >= 1) {
+        this.waveAnim = null;
+        this.wavePhase = 0;
+        this.waveCells = [];
+      } else {
+        this.wavePhase = progress;
+      }
     }
   },
 
@@ -1039,17 +1146,7 @@ const Game = {
     GameAudio.playColorShift();
     Haptics.vibrate(1200);
 
-    this.spawnShockwave(
-      this.canvas.width / 2,
-      this.canvas.height / 2,
-      this.canvas.width * 0.55
-    );
-
-    for (let i = 0; i < 6; i++) {
-      const x = Math.floor(Math.random() * this.SIZE);
-      const y = Math.floor(Math.random() * this.SIZE);
-      this.spawnParticles(x, y, 6, "#faf3e1");
-    }
+    this.startWaveAnimation();
 
     this.timeScale = 0.4;
 
@@ -1073,6 +1170,59 @@ const Game = {
     halo.classList.remove("play", "thick");
     void halo.offsetWidth;
     halo.classList.add("play", "thick");
+  },
+
+  startWaveAnimation() {
+    const centerX = this.SIZE / 2;
+    const centerY = this.SIZE / 2;
+
+    this.waveCells = [];
+
+    for (let ring = 0; ring < Math.max(this.SIZE, this.SIZE); ring++) {
+      for (let y = 0; y < this.SIZE; y++) {
+        for (let x = 0; x < this.SIZE; x++) {
+          const dist = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
+          if (dist === ring) {
+            this.waveCells.push({ x, y, ring, delay: ring * 40 });
+          }
+        }
+      }
+    }
+
+    this.waveAnim = {
+      start: this.gameNow,
+      duration: this.waveCells.length * 40 + 600
+    };
+
+    this.waveCells.forEach((cell, index) => {
+      setTimeout(() => {
+        this.triggerCellFlash(cell.x, cell.y);
+        if (index === this.waveCells.length - 1) {
+          this.triggerScreenShake();
+        }
+      }, cell.delay);
+    });
+  },
+
+  triggerCellFlash(x, y) {
+    this.cellFlashes.push({
+      x,
+      y,
+      start: this.gameNow
+    });
+
+    GameAudio.playWaveTick();
+  },
+
+  triggerScreenShake() {
+    const screen = document.getElementById("gameScreen");
+    screen.classList.add("intense-shake");
+
+    setTimeout(() => {
+      screen.classList.remove("intense-shake");
+    }, 600);
+
+    Haptics.vibrate(600);
   },
 
   processClears() {
@@ -1272,7 +1422,7 @@ const Game = {
 
       if (this.countdown <= 0) {
         this.stopCountdown();
-        this.reset();
+        this.startRestartSequence();
         return;
       }
 
@@ -1283,6 +1433,68 @@ const Game = {
 
       GameAudio.playCountdown();
     }, 1000);
+  },
+
+  startRestartSequence() {
+    const overlay = document.getElementById("gameOverOverlay");
+
+    overlay.classList.add("fade-out");
+
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      overlay.classList.remove("fade-out");
+
+      this.animateFrozenBlocksDisappearance();
+    }, 400);
+  },
+
+  animateFrozenBlocksDisappearance() {
+    const frozenCells = [];
+
+    for (let y = 0; y < this.SIZE; y++) {
+      for (let x = 0; x < this.SIZE; x++) {
+        if (this.cells[y][x] === 3) {
+          frozenCells.push({ x, y });
+        }
+      }
+    }
+
+    frozenCells.forEach((cell, index) => {
+      setTimeout(() => {
+        this.cells[cell.y][cell.x] = 0;
+        this.spawnParticles(cell.x, cell.y, 6, Theme.current.light);
+        this.spawnDebris(cell.x, cell.y, Theme.current.dark, 2);
+        GameAudio.playBlockDisappear();
+      }, index * 60);
+    });
+
+    setTimeout(() => {
+      this.animateScoreReset();
+    }, frozenCells.length * 60 + 200);
+  },
+
+  animateScoreReset() {
+    const scoreEl = document.getElementById("currentScore");
+    const startScore = this.displayedScore;
+
+    scoreEl.classList.add("score-reset");
+
+    let current = startScore;
+    const step = Math.max(1, Math.ceil(startScore / 20));
+
+    const resetInterval = setInterval(() => {
+      current -= step;
+      if (current <= 0) {
+        current = 0;
+        clearInterval(resetInterval);
+        scoreEl.classList.remove("score-reset");
+
+        setTimeout(() => {
+          this.reset();
+        }, 400);
+      }
+      scoreEl.textContent = current;
+    }, 30);
   },
 
   stopCountdown() {
@@ -1487,6 +1699,7 @@ const Game = {
     this.drawParticles();
     this.drawDebris();
     this.drawPointerLight();
+    this.drawWaveAnimation(now);
   },
 
   drawAmbientLight() {
@@ -1627,6 +1840,30 @@ const Game = {
     return (0.06 + level * 0.05) * flicker * fade;
   },
 
+  getWaveCellState(x, y, now) {
+    if (!this.waveAnim) return null;
+
+    const age = now - this.waveAnim.start;
+    const progress = age / this.waveAnim.duration;
+
+    const centerX = this.SIZE / 2;
+    const centerY = this.SIZE / 2;
+    const cellRing = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
+    const maxRing = Math.max(this.SIZE, this.SIZE) / 2;
+    const waveProgress = cellRing / maxRing;
+
+    if (progress >= waveProgress && progress < waveProgress + 0.15) {
+      const localProgress = (progress - waveProgress) / 0.15;
+      const scale = 1 + 0.25 * Math.sin(localProgress * Math.PI);
+      const brightness = 1 + 0.8 * Math.sin(localProgress * Math.PI);
+      const shake = Math.sin(now / 20 + x * 3 + y * 2) * 2;
+
+      return { scale, brightness, shake };
+    }
+
+    return null;
+  },
+
   drawCells() {
     const cellSize = this.getCellSize();
     const now = this.gameNow;
@@ -1650,9 +1887,12 @@ const Game = {
 
         const shake = this.getShakeOffset(x, y, now);
         const anim = this.cellAnims[`${x},${y}`];
+        const waveState = this.getWaveCellState(x, y, now);
         let scale = 1;
         let alpha = 1;
         let glow = 0;
+        let brightness = 1;
+        let extraShake = 0;
 
         if (anim) {
           const age = Math.min(1, (now - anim.start) / (anim.type === "spawn" ? 420 : 260));
@@ -1666,6 +1906,12 @@ const Game = {
           }
         }
 
+        if (waveState) {
+          scale = waveState.scale;
+          brightness = waveState.brightness;
+          extraShake = waveState.shake;
+        }
+
         if (value === 1) alpha = 0.55;
 
         const fx = this.getColorFxState(x, y, now);
@@ -1675,7 +1921,7 @@ const Game = {
           glow = fx.glow;
         }
 
-        this.drawCellAt(x, y, value, scale, alpha, shake);
+        this.drawCellAt(x, y, value, scale, alpha, shake + extraShake, brightness);
 
         const ctx = this.ctx;
         const px = x * cellSize + shake;
@@ -1741,7 +1987,7 @@ const Game = {
     }
   },
 
-  drawCellAt(x, y, value, scale, alpha, shakeX = 0) {
+  drawCellAt(x, y, value, scale, alpha, shakeX = 0, brightness = 1) {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
@@ -1755,6 +2001,7 @@ const Game = {
     ctx.save();
 
     ctx.globalAlpha = alpha;
+    ctx.filter = `brightness(${brightness})`;
 
     ctx.translate(px + center, py + center);
     ctx.scale(scale, scale);
@@ -1773,6 +2020,7 @@ const Game = {
     ctx.fill();
 
     ctx.restore();
+    ctx.filter = "none";
   },
 
   drawCellFlashes(now) {
@@ -2117,6 +2365,38 @@ const Game = {
 
       ctx.restore();
     }
+  },
+
+  drawWaveAnimation(now) {
+    if (!this.waveAnim) return;
+
+    const age = now - this.waveAnim.start;
+    const progress = age / this.waveAnim.duration;
+
+    if (progress > 1) return;
+
+    const ctx = this.ctx;
+    const cellSize = this.getCellSize();
+
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const maxRadius = Math.max(this.canvas.width, this.canvas.height) * 0.8;
+    const currentRadius = progress * maxRadius;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    const gradient = ctx.createRadialGradient(centerX, centerY, currentRadius * 0.8, centerX, centerY, currentRadius);
+    gradient.addColorStop(0, "rgba(250, 243, 225, 0)");
+    gradient.addColorStop(0.5, `rgba(250, 243, 225, ${0.4 * (1 - progress)})`);
+    gradient.addColorStop(1, "rgba(250, 243, 225, 0)");
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   },
 
   invalidFeedback(x, y) {
