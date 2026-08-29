@@ -13,7 +13,7 @@ const GameAudio = {
 
   ensure() {
     if (this.ctx) {
-      if (this.ctx.state === "suspended") {
+      if (this.ctx.state === "suspended" && !document.hidden) {
         this.ctx.resume();
       }
       return;
@@ -36,8 +36,26 @@ const GameAudio = {
   unlock() {
     this.ensure();
 
-    if (this.musicEnabled) {
+    if (this.musicEnabled && !document.hidden) {
       this.startMusic();
+    }
+  },
+
+  handleVisibility() {
+    if (!this.ctx) return;
+
+    if (document.hidden) {
+      if (this.ctx.state === "running") {
+        this.ctx.suspend();
+      }
+    } else {
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume();
+      }
+
+      if (this.musicEnabled) {
+        this.startMusic();
+      }
     }
   },
 
@@ -84,6 +102,7 @@ const GameAudio = {
   startMusic() {
     this.ensure();
     if (!this.ctx || !this.musicGain || !this.musicEnabled) return;
+    if (document.hidden) return;
     if (this.musicSource || this.musicNodes.length > 0) return;
 
     if (!this.musicBuffer) {
@@ -116,6 +135,7 @@ const GameAudio = {
   startSynthMusic() {
     this.ensure();
     if (!this.ctx || !this.musicGain || !this.musicEnabled) return;
+    if (document.hidden) return;
     if (this.musicNodes.length > 0) return;
 
     const now = this.ctx.currentTime;
@@ -207,6 +227,7 @@ const GameAudio = {
 
   playTone(freq, options = {}) {
     if (!this.soundEnabled) return;
+    if (document.hidden) return;
 
     this.ensure();
     if (!this.ctx || !this.master) return;
@@ -346,6 +367,7 @@ const GameAudio = {
 
   playDefeatLong(durationMs = 3200) {
     if (!this.soundEnabled) return;
+    if (document.hidden) return;
 
     this.ensure();
     if (!this.ctx || !this.master) return;
