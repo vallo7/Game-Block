@@ -50,6 +50,7 @@ const Game = {
 
   cellAnims: {},
   cancelAnims: {},
+  destroyAnims: [],
   cellFlashes: [],
   floatingTexts: [],
   particles: [],
@@ -178,6 +179,7 @@ const Game = {
     this.lineBeams = [];
     this.cellAnims = {};
     this.cancelAnims = [];
+    this.destroyAnims = [];
     this.cellFlashes = [];
     this.floatingTexts = [];
     this.particles = [];
@@ -1056,7 +1058,7 @@ const Game = {
     this.timeScale = 0.4;
 
     setTimeout(() => {
-      const duration = 900;
+      const duration = 1500;
       const start = this.gameNow;
 
       this.colorFx = { start, duration };
@@ -1064,7 +1066,7 @@ const Game = {
 
       Theme.shift(duration);
       GameAudio.playColorShift();
-      Haptics.vibrate(1200);
+      Haptics.vibrate(1500);
 
       const screen = document.getElementById("gameScreen");
       screen.classList.remove("quake");
@@ -1147,6 +1149,13 @@ const Game = {
       this.cellFlashes.push({
         x,
         y,
+        start: this.gameNow + (i % 8) * 22
+      });
+
+      this.destroyAnims.push({
+        x,
+        y,
+        value,
         start: this.gameNow + (i % 8) * 22
       });
 
@@ -1535,6 +1544,7 @@ const Game = {
     this.drawBoard();
     this.drawPathLine();
     this.drawCells();
+    this.drawDestroyAnims(now);
     this.drawCellFlashes(now);
     this.drawLineFlashes(now);
     this.drawLineBeams(now);
@@ -1627,12 +1637,12 @@ const Game = {
     const wave = (age / this.colorFx.duration) * 6.5;
 
     const d = wave - ring;
-    const bell = Math.max(0, 1 - Math.abs(d - 0.4) / 1.3);
+    const bell = Math.max(0, 1 - Math.abs(d - 0.4) / 1.8);
 
-    const pulse = 1 + 0.25 * bell;
-    const glow = 0.9 * bell;
-
-    return { pulse, glow };
+    return {
+      pulse: 1 + 0.3 * bell,
+      glow: bell
+    };
   },
 
   getLightWaveScale(x, y, now) {
@@ -1848,6 +1858,50 @@ const Game = {
     ctx.fill();
 
     ctx.restore();
+  },
+
+  drawDestroyAnims(now) {
+    const ctx = this.ctx;
+    const cellSize = this.getCellSize();
+
+    this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < 320);
+
+    const pad = cellSize * 0.035;
+    const box = cellSize - pad * 2;
+    const r = cellSize * 0.16;
+    const center = cellSize / 2;
+
+    for (const a of this.destroyAnims) {
+      const t = (now - a.start) / 320;
+
+      const grow = t < 0.3
+        ? 1 + 0.3 * (t / 0.3)
+        : 1.3 * (1 - (t - 0.3) / 0.7);
+
+      const alpha = 1 - t;
+      const rot = (t * 0.5) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
+
+      const px = a.x * cellSize;
+      const py = a.y * cellSize;
+
+      ctx.save();
+
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.translate(px + center, py + center);
+      ctx.rotate(rot);
+      ctx.scale(Math.max(0.01, grow), Math.max(0.01, grow));
+      ctx.translate(-center, -center);
+
+      ctx.fillStyle = this.frameGradients[a.value] || "#ffffff";
+      this.roundRectPath(pad, pad, box, box, r);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(250, 243, 225, 0.4)";
+      this.roundRectPath(pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
+      ctx.fill();
+
+      ctx.restore();
+    }
   },
 
   drawCellFlashes(now) {
