@@ -53,8 +53,6 @@ body.locked canvas {
   pointer-events: none;
 }
 
-/* CANDY PRO : dégradé + insets, sans chevaucher le contenu */
-
 button {
   position: relative;
   font-family: inherit;
@@ -108,7 +106,7 @@ button {
   stroke-linejoin: round;
 }
 
-/* TREMBLEMENT : pulsations stationnaires rapides */
+/* TREMBLEMENT */
 
 #gameScreen.quake {
   animation: quake 900ms ease;
@@ -141,21 +139,24 @@ button {
   82% { transform: scale(0.985); }
 }
 
-/* HALO qui sort de la grille */
+/* HALO plus grand et plus brillant */
 
 #haloWave {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 74%;
-  height: 74%;
-  margin: -37% 0 0 -37%;
-  border: 6px solid var(--theme-light);
-  border-radius: 34px;
+  width: 78%;
+  height: 78%;
+  margin: -39% 0 0 -39%;
+  border: 10px solid var(--theme-light);
+  border-radius: 40px;
   opacity: 0;
   pointer-events: none;
   z-index: 8;
-  box-shadow: 0 0 34px var(--theme-light);
+  box-shadow:
+    0 0 70px var(--theme-light),
+    0 0 140px var(--theme-light),
+    inset 0 0 40px var(--theme-light);
 }
 
 #haloWave.play {
@@ -163,8 +164,28 @@ button {
 }
 
 @keyframes haloOut {
-  0% { opacity: 0.95; transform: scale(1); }
-  100% { opacity: 0; transform: scale(3.6); }
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(4.4); }
+}
+
+/* CONFETTIS */
+
+.confetti-piece {
+  position: fixed;
+  top: -24px;
+  width: 10px;
+  height: 15px;
+  border-radius: 3px;
+  z-index: 130;
+  pointer-events: none;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  to {
+    transform: translateY(112vh) rotate(760deg);
+    opacity: 0.9;
+  }
 }
 
 /* SPLASH */
@@ -401,6 +422,7 @@ button {
   padding: 0 18px;
   background-color: var(--cream);
   color: var(--ink);
+  cursor: pointer;
 }
 
 .best-icon {
@@ -473,8 +495,6 @@ canvas {
   -webkit-user-select: none;
   background: rgba(0, 0, 0, 0.1);
 }
-
-/* COMBO plus visuel */
 
 .combo-badge {
   position: absolute;
@@ -609,8 +629,6 @@ canvas {
 .overlay:not(.hidden) .gameover-panel {
   animation: panelPop 260ms var(--spring) forwards;
 }
-
-/* SETTINGS : layout pro, boutons carrés */
 
 .settings-panel {
   width: min(100%, 330px);
@@ -754,8 +772,6 @@ canvas {
   display: grid;
   place-items: center;
 }
-
-/* GAME OVER : compact et pro */
 
 .gameover-panel {
   width: min(100%, 290px);
