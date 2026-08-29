@@ -11,6 +11,7 @@ const App = {
     this.bindUI();
     this.bindBackButton();
     this.bindButtonPop();
+    this.bindVisibility();
     this.buildWatermark();
     this.updateAdsUI();
     this.showMenu();
@@ -19,6 +20,31 @@ const App = {
     document.addEventListener("pointerdown", () => {
       GameAudio.unlock();
     }, { once: true });
+  },
+
+  bindVisibility() {
+    document.addEventListener("visibilitychange", () => {
+      GameAudio.handleVisibility();
+    });
+
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+      Capacitor.Plugins.App.addListener("appStateChange", (state) => {
+        if (state && typeof state.isActive === "boolean") {
+          if (!state.isActive) {
+            if (GameAudio.ctx && GameAudio.ctx.state === "running") {
+              GameAudio.ctx.suspend();
+            }
+          } else {
+            if (GameAudio.ctx && GameAudio.ctx.state === "suspended") {
+              GameAudio.ctx.resume();
+            }
+            if (GameAudio.musicEnabled) {
+              GameAudio.startMusic();
+            }
+          }
+        }
+      });
+    }
   },
 
   bindBackButton() {
