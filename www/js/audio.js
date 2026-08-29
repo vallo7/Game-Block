@@ -209,6 +209,53 @@ const GameAudio = {
     });
   },
 
+  playDefeatLong(durationMs = 2000) {
+    if (!this.soundEnabled) return;
+
+    this.ensure();
+
+    if (!this.ctx || !this.master) return;
+
+    const duration = durationMs / 1000;
+    const now = this.ctx.currentTime;
+
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(280, now);
+    osc1.frequency.exponentialRampToValueAtTime(55, now + duration);
+
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.26, now + 0.08);
+    gain1.gain.setValueAtTime(0.26, now + duration - 0.5);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc1.connect(gain1);
+    gain1.connect(this.master);
+
+    osc1.start(now);
+    osc1.stop(now + duration + 0.05);
+
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(140, now);
+    osc2.frequency.exponentialRampToValueAtTime(40, now + duration);
+
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.3, now + 0.1);
+    gain2.gain.setValueAtTime(0.3, now + duration - 0.5);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc2.connect(gain2);
+    gain2.connect(this.master);
+
+    osc2.start(now);
+    osc2.stop(now + duration + 0.05);
+  },
+
   startMusic() {
     this.ensure();
 
