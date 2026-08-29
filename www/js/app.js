@@ -94,12 +94,40 @@ const App = {
     }, 1600);
   },
 
+  confetti() {
+    const colors = Theme.bank.map(c => c.bg);
+
+    for (let i = 0; i < 60; i++) {
+      const piece = document.createElement("div");
+      piece.className = "confetti-piece";
+
+      piece.style.left = Math.random() * 100 + "vw";
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDuration = 900 + Math.random() * 700 + "ms";
+      piece.style.animationDelay = Math.random() * 200 + "ms";
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+
+      document.body.appendChild(piece);
+
+      setTimeout(() => {
+        piece.remove();
+      }, 2200);
+    }
+  },
+
   bindUI() {
     const settingsBtn = document.getElementById("settingsBtn");
     const settingsOverlay = document.getElementById("settingsOverlay");
     const settingsCloseBtn = document.getElementById("settingsCloseBtn");
     const settingsHomeBtn = document.getElementById("settingsHomeBtn");
     const settingsRestartBtn = document.getElementById("settingsRestartBtn");
+    const bestScore = document.querySelector(".best-score");
+
+    bestScore.addEventListener("click", () => {
+      GameAudio.unlock();
+      GameAudio.playClick();
+      this.confetti();
+    });
 
     settingsBtn.addEventListener("click", () => {
       GameAudio.unlock();
