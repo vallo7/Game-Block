@@ -80,7 +80,23 @@ jobs:
           </shape>
           EOF
 
-          echo "Native splash set to white."
+          cat > android/app/src/main/res/values/styles.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="colorPrimary">@color/colorPrimary</item>
+                  <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+                  <item name="colorAccent">@color/colorAccent</item>
+                  <item name="android:background">@null</item>
+              </style>
+              <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+                  <item name="android:background">#FFFFFF</item>
+                  <item name="android:windowBackground">#FFFFFF</item>
+              </style>
+          </resources>
+          EOF
+
+          echo "Native splash forced to white."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
