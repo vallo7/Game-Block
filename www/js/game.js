@@ -352,25 +352,38 @@ const Game = {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    let g = ctx.createLinearGradient(0, 0, 0, cellSize);
-    g.addColorStop(0, "#faf3e1");
-    g.addColorStop(1, "#e3d5b8");
-    this.frameGradients[1] = g;
+    const sizeChanged = this._gradCellSize !== cellSize;
+    const themeChanged = this._gradThemeLight !== Theme.current.light || this._gradThemeDark !== Theme.current.dark;
 
-    g = ctx.createLinearGradient(0, 0, 0, cellSize);
-    g.addColorStop(0, "#faf3e1");
-    g.addColorStop(1, "#e0d2b4");
-    this.frameGradients[2] = g;
+    if (!sizeChanged && !themeChanged) return;
 
-    g = ctx.createLinearGradient(0, 0, 0, cellSize);
-    g.addColorStop(0, Theme.current.light);
-    g.addColorStop(1, Theme.current.dark);
-    this.frameGradients[3] = g;
+    if (sizeChanged || !this.frameGradients[1]) {
+      let g = ctx.createLinearGradient(0, 0, 0, cellSize);
+      g.addColorStop(0, "#faf3e1");
+      g.addColorStop(1, "#e3d5b8");
+      this.frameGradients[1] = g;
 
-    g = ctx.createLinearGradient(0, 0, 0, cellSize);
-    g.addColorStop(0, "#ffffff");
-    g.addColorStop(1, "#9fd8ff");
-    this.frameGradients.ice = g;
+      g = ctx.createLinearGradient(0, 0, 0, cellSize);
+      g.addColorStop(0, "#faf3e1");
+      g.addColorStop(1, "#e0d2b4");
+      this.frameGradients[2] = g;
+
+      g = ctx.createLinearGradient(0, 0, 0, cellSize);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(1, "#9fd8ff");
+      this.frameGradients.ice = g;
+    }
+
+    if (sizeChanged || themeChanged) {
+      const g = ctx.createLinearGradient(0, 0, 0, cellSize);
+      g.addColorStop(0, Theme.current.light);
+      g.addColorStop(1, Theme.current.dark);
+      this.frameGradients[3] = g;
+    }
+
+    this._gradCellSize = cellSize;
+    this._gradThemeLight = Theme.current.light;
+    this._gradThemeDark = Theme.current.dark;
   },
 
   getGlowSprite(rgb) {
@@ -437,6 +450,16 @@ const Game = {
     const fillCurve = Math.min(1, Math.max(0, (fill - 0.3) / 0.5));
 
     return Math.min(1, turnCurve * 0.6 + scoreCurve * 0.25 + fillCurve * 0.15);
+  },
+
+  // La courbe ci-dessus plafonne à 1 (autour du tour ~250-300). Au-delà de ce
+  // plafond, cette seconde courbe très lente et sans limite continue de faire
+  // évoluer la partie pour les joueurs qui durent très longtemps.
+  getEndlessIntensity() {
+    const longTurn = Math.max(0, this.turn - 150);
+    const longScore = Math.max(0, this.score - 40000);
+
+    return Math.log(1 + longTurn / 90 + longScore / 60000);
   },
 
   getFillRatio() {
@@ -570,6 +593,7 @@ const Game = {
 
   generateRequiredBlocks() {
     const diff = this.getDifficulty();
+    const intensity = this.getEndlessIntensity();
     const fill = this.getFillRatio();
 
     const low = [6, 14, 22, 26, 20, 12];
@@ -578,6 +602,14 @@ const Game = {
     const weights = low.map((value, index) => {
       return value + (high[index] - value) * diff;
     });
+
+    if (intensity > 0) {
+      const shift = Math.min(0.85, intensity * 0.18);
+      weights[0] *= 1 - shift * 0.7;
+      weights[1] *= 1 - shift * 0.5;
+      weights[4] *= 1 + shift * 0.6;
+      weights[5] *= 1 + shift * 0.9;
+    }
 
     if (fill > 0.72) {
       weights[4] *= 0.64;
@@ -604,7 +636,7 @@ const Game = {
   },
 
   setupNextBlock() {
-    if (window.Tutorial && Tutorial.active) {
+    if (Tutorial.active) {
       const forced = Tutorial.nextRequiredBlocks();
       if (forced !== null) {
         this.requiredBlocks = forced;
@@ -640,10 +672,11 @@ const Game = {
   },
 
   maybeSpawnObstacles() {
-    if (window.Tutorial && Tutorial.active) return;
+    if (Tutorial.active) return;
 
     const diff = this.getDifficulty();
-    const interval = Math.max(2, 5 - Math.round(diff * 3));
+    const intensity = this.getEndlessIntensity();
+    const interval = Math.max(1, 5 - Math.round(diff * 3) - Math.min(1, Math.round(intensity * 0.5)));
 
     if (this.turnsSinceObstacle < interval) return;
 
@@ -806,7 +839,7 @@ const Game = {
     if (x < 0 || x >= this.SIZE || y < 0 || y >= this.SIZE) return false;
     if (this.cells[y][x] !== 0) return false;
     if (this.path.length >= this.requiredBlocks) return false;
-    if (window.Tutorial && Tutorial.active && !Tutorial.isCellAllowed(x, y, this.path)) return false;
+    if (Tutorial.active && !Tutorial.isCellAllowed(x, y, this.path)) return false;
 
     if (this.path.length === 0) return true;
 
@@ -1010,7 +1043,7 @@ const Game = {
 
     this.updateHUD();
 
-    if (window.Tutorial && Tutorial.active) {
+    if (Tutorial.active) {
       Tutorial.afterValidate();
     }
   },
@@ -1612,7 +1645,7 @@ const Game = {
     this.drawDebris();
     this.drawPointerLight();
 
-    if (window.Tutorial && Tutorial.active) {
+    if (Tutorial.active) {
       Tutorial.drawOnCanvas(ctx, now);
     }
   },
@@ -1755,6 +1788,15 @@ const Game = {
     return (0.06 + level * 0.05) * flicker * fade;
   },
 
+  getIdleBreath(x, y, value, now) {
+    if (value !== 2) return 1;
+
+    const phase = (x * 12.9 + y * 7.3) % (Math.PI * 2);
+    const period = 2800 + ((x * 3 + y * 5) % 5) * 140;
+
+    return 1 + Math.sin(now / period + phase) * 0.014;
+  },
+
   drawCells() {
     const cellSize = this.getCellSize();
     const now = this.gameNow;
@@ -1802,6 +1844,8 @@ const Game = {
           scale *= fx.pulse;
           glow = fx.glow;
         }
+
+        scale *= this.getIdleBreath(x, y, value, now);
 
         this.drawCellAt(x, y, value, scale, alpha, shake);
 
