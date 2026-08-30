@@ -604,6 +604,15 @@ const Game = {
   },
 
   setupNextBlock() {
+    if (window.Tutorial && Tutorial.active) {
+      const forced = Tutorial.nextRequiredBlocks();
+      if (forced !== null) {
+        this.requiredBlocks = forced;
+        this.updateHUD();
+        return;
+      }
+    }
+
     if (this.queue.length < 3) {
       this.queue.push(this.generateRequiredBlocks());
     }
@@ -631,6 +640,8 @@ const Game = {
   },
 
   maybeSpawnObstacles() {
+    if (window.Tutorial && Tutorial.active) return;
+
     const diff = this.getDifficulty();
     const interval = Math.max(2, 5 - Math.round(diff * 3));
 
@@ -795,6 +806,7 @@ const Game = {
     if (x < 0 || x >= this.SIZE || y < 0 || y >= this.SIZE) return false;
     if (this.cells[y][x] !== 0) return false;
     if (this.path.length >= this.requiredBlocks) return false;
+    if (window.Tutorial && Tutorial.active && !Tutorial.isCellAllowed(x, y, this.path)) return false;
 
     if (this.path.length === 0) return true;
 
@@ -997,6 +1009,10 @@ const Game = {
     this.checkGameOver();
 
     this.updateHUD();
+
+    if (window.Tutorial && Tutorial.active) {
+      Tutorial.afterValidate();
+    }
   },
 
   pointsColor(count) {
@@ -1595,6 +1611,10 @@ const Game = {
     this.drawParticles();
     this.drawDebris();
     this.drawPointerLight();
+
+    if (window.Tutorial && Tutorial.active) {
+      Tutorial.drawOnCanvas(ctx, now);
+    }
   },
 
   drawAmbientLight() {
