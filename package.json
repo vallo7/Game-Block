@@ -1,8 +1,8 @@
 {
-  "name": "ink-blast",
+  "name": "game-block",
   "version": "0.0.1",
   "private": true,
-  "description": "Prototype de jeu mobile Ink Blast",
+  "description": "Prototype de jeu mobile Game Block",
   "scripts": {
     "build": "echo \"No build step\""
   },
