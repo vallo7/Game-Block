@@ -317,6 +317,15 @@ const GameAudio = {
     });
   },
 
+  playBlockSpawn(index) {
+    this.playTone(280 + (index % 8) * 34, {
+      duration: 0.07,
+      type: "triangle",
+      gain: 0.22,
+      slideTo: 520
+    });
+  },
+
   playPraise(level) {
     const base = 523;
     const notes = 3 + level;
