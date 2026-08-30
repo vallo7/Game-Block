@@ -1,22 +1,22 @@
 const Theme = {
 bank: [
-{ bg: "#E08A8A", dark: "#C06A6A", light: "#EBA8A8" },
-{ bg: "#DD9A6B", dark: "#BC7F4F", light: "#E8B492" },
-{ bg: "#D9B366", dark: "#B8944E", light: "#E5C88F" },
-{ bg: "#5CB8A4", dark: "#439B87", light: "#8ACDBB" },
-{ bg: "#6BB5D6", dark: "#4F97B5", light: "#97CBE3" },
-{ bg: "#7A93D9", dark: "#5F79BC", light: "#A3B5E8" },
-{ bg: "#9C86DC", dark: "#7F68BD", light: "#BBA9E9" },
-{ bg: "#D68BC0", dark: "#B56CA2", light: "#E3AFD4" },
-{ bg: "#D97E97", dark: "#B96079", light: "#E7A2B4" },
-{ bg: "#63AFA5", dark: "#47948A", light: "#8FC8C0" }
+{ bg: "#EC7E7E", dark: "#CC5E5E", light: "#F49F9F" },
+{ bg: "#ED975B", dark: "#CB7D40", light: "#F4B186" },
+{ bg: "#E9B856", dark: "#C7993F", light: "#F1CC83" },
+{ bg: "#4FC5AB", dark: "#37A78E", light: "#81D6BF" },
+{ bg: "#5CBBE5", dark: "#419DC3", light: "#8CCFEE" },
+{ bg: "#6D8DE6", dark: "#5273C9", light: "#99B0F2" },
+{ bg: "#967AE8", dark: "#7A5CC9", light: "#B7A0F2" },
+{ bg: "#E080C4", dark: "#BF62A7", light: "#EAA8D7" },
+{ bg: "#E67191", dark: "#C55474", light: "#F198AF" },
+{ bg: "#58BAAD", dark: "#3C9F92", light: "#87D0C6" }
 ],
 menuIndex: 0,
 gameIndex: 0,
 current: {
-bg: "#7A93D9",
-dark: "#5F79BC",
-light: "#A3B5E8"
+bg: "#6D8DE6",
+dark: "#5273C9",
+light: "#99B0F2"
 },
 animFrame: null,
 init() {
