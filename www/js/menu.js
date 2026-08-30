@@ -1,13 +1,18 @@
 const Menu = {
   init() {
     const classicModeBtn = document.getElementById("classicModeBtn");
+
     classicModeBtn.addEventListener("click", () => {
+      if (window.Tutorial) Tutorial.handleClassicTap();
       GameAudio.unlock();
       GameAudio.playClick();
       Haptics.vibrate(15);
-      if (Tutorial.active && Tutorial.step === 0) Tutorial.startGame();
-      setTimeout(() => { App.showGame(); }, 220);
+
+      setTimeout(() => {
+        App.showGame();
+      }, 220);
     });
+
     document.querySelectorAll(".mode-card.locked").forEach(button => {
       button.addEventListener("click", () => {
         GameAudio.playClick();
