@@ -1,157 +1,261 @@
-const GLOVE_SVG =
-  '<svg viewBox="0 0 64 64">' +
-  '<rect x="27" y="2" width="11" height="30" rx="5.5" fill="#fff"/>' +
-  '<rect x="18" y="26" width="30" height="26" rx="12" fill="#fff"/>' +
-  '<rect x="12" y="30" width="11" height="16" rx="5.5" fill="#fff"/>' +
-  "</svg>";
-
+/*
+  Tutoriel de première ouverture — 100% visuel, sans texte.
+  Étapes : menu (inviter à toucher "Classic") -> 3 tracés scriptés sur la
+  grille -> apparition de 5 blocs aléatoires -> fin, jeu normal ensuite.
+  Séquence de cases conçue spécifiquement pour la grille 8x8 (Game.SIZE).
+*/
 const Tutorial = {
   active: false,
-  step: 0, // 0 = menu, 1..3 = tracés, >3 = terminé
-  paths: {
-    1: [{x:0,y:5},{x:1,y:5},{x:2,y:5},{x:3,y:5}],
-    2: [{x:4,y:5},{x:5,y:5},{x:6,y:5},{x:7,y:5},{x:7,y:6},{x:7,y:7}],
-    3: [{x:7,y:5},{x:7,y:4},{x:7,y:3},{x:7,y:2},{x:7,y:1},{x:7,y:0}]
-  },
+  phase: "idle", // idle | menu | awaitingGame | trace | postTrace | spawning | done
+
+  traceIndex: -1,
+  pathVisible: false,
+
   menuGlove: null,
-  gameGlove: null,
-  _origSetup: null,
+  menuGloveResizeHandler: null,
+  gloveImage: null,
 
+  // Repères mesurés sur img/tutorial-hand.png : position de la pointe du
+  // doigt en fraction de la largeur/hauteur de l'image.
+  TIP_X_RATIO: 0.171,
+  TIP_Y_RATIO: 0.008,
+
+  traces: [
+    { required: 4, path: [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 5 }] },
+    { required: 6, path: [{ x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 }, { x: 7, y: 6 }, { x: 7, y: 7 }] },
+    { required: 6, path: [{ x: 7, y: 5 }, { x: 7, y: 4 }, { x: 7, y: 3 }, { x: 7, y: 2 }, { x: 7, y: 1 }, { x: 7, y: 0 }] }
+  ],
+
+  SPLASH_DELAY: 2250, // micro délai avant le lancement du tutoriel (après le splash)
+  SPAWN_STAGGER: 300, // délai entre chaque bloc d'obstacle qui apparaît
+  END_DELAY: 600, // micro délai après la fin du tutoriel
+
+  // ---------- Entrée ----------
   init() {
-    if (Storage.isTutorialDone()) { this.active = false; return; }
+    if (Storage.getTutorialDone()) return;
+
+    this.gloveImage = new Image();
+    this.gloveImage.src = "img/tutorial-hand.png";
+
     this.active = true;
-    this.step = 0;
-    document.body.classList.add("tutorial-menu");
-    this.buildGloves();
-    this.installHooks();
+    this.phase = "menu";
+
+    setTimeout(() => this.enterMenuPhase(), this.SPLASH_DELAY);
   },
 
-  installHooks() {
-    const self = this;
-    const _canAdd = Game.canAddCell.bind(Game);
-    Game.canAddCell = function(x, y) {
-      if (self.active && self.step >= 1 && self.step <= 3) return self.canAdd(x, y);
-      return _canAdd(x, y);
-    };
+  // ---------- Étape menu ----------
+  enterMenuPhase() {
+    if (!this.active || this.phase !== "menu") return;
 
-    const _setup = Game.setupNextBlock.bind(Game);
-    this._origSetup = _setup;
-    Game.setupNextBlock = function() {
-      if (self.active && self.step >= 1 && self.step <= 3) {
-        Game.requiredBlocks = self.required();
-        Game.updateHUD();
-        return;
-      }
-      return _setup();
-    };
+    const menuScreen = document.getElementById("menuScreen");
+    const classicBtn = document.getElementById("classicModeBtn");
 
-    const _obs = Game.maybeSpawnObstacles.bind(Game);
-    Game.maybeSpawnObstacles = function() { if (self.active) return; return _obs(); };
+    if (menuScreen) menuScreen.classList.add("tutorial-spotlight");
+    if (classicBtn) classicBtn.classList.add("tutorial-pulse");
+    document.body.classList.add("tutorial-locked");
 
-    const _check = Game.checkGameOver.bind(Game);
-    Game.checkGameOver = function() { if (self.active) return; return _check(); };
-
-    const _validate = Game.validate.bind(Game);
-    Game.validate = function() {
-      const wasT = self.active && self.step >= 1 && self.step <= 3;
-      const r = _validate();
-      if (wasT) {
-        self.onValidated();
-        if (self.active && self.step >= 1 && self.step <= 3) {
-          Game.requiredBlocks = self.required();
-          Game.updateHUD();
-        }
-      }
-      return r;
-    };
-
-    const _draw = Game.draw.bind(Game);
-    Game.draw = function() {
-      _draw();
-      if (self.active && self.step >= 1 && self.step <= 3) self.drawHighlights();
-      self.positionGameGlove();
-    };
+    this.mountMenuGlove();
   },
 
-  buildGloves() {
+  mountMenuGlove() {
     const btn = document.getElementById("classicModeBtn");
-    if (btn && !document.getElementById("menuGlove")) {
-      const g = document.createElement("div");
-      g.id = "menuGlove";
-      g.className = "tutor-glove menu-glove";
-      g.innerHTML = GLOVE_SVG;
-      btn.appendChild(g);
-    }
-    const shell = document.querySelector(".board-shell");
-    if (shell && !document.getElementById("gameGlove")) {
-      const g = document.createElement("div");
-      g.id = "gameGlove";
-      g.className = "tutor-glove game-glove";
-      g.innerHTML = GLOVE_SVG;
-      g.style.opacity = "0";
-      shell.appendChild(g);
-    }
-    this.menuGlove = document.getElementById("menuGlove");
-    this.gameGlove = document.getElementById("gameGlove");
+    if (!btn) return;
+
+    const glove = document.createElement("img");
+    glove.src = "img/tutorial-hand.png";
+    glove.alt = "";
+    glove.setAttribute("aria-hidden", "true");
+    glove.className = "tutorial-glove";
+
+    document.body.appendChild(glove);
+    this.menuGlove = glove;
+
+    this.positionMenuGlove();
+
+    this.menuGloveResizeHandler = () => this.positionMenuGlove();
+    window.addEventListener("resize", this.menuGloveResizeHandler);
   },
 
-  startGame() {
+  positionMenuGlove() {
+    if (!this.menuGlove) return;
+
+    const btn = document.getElementById("classicModeBtn");
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+
+    this.menuGlove.style.left = (rect.left + rect.width * 0.6) + "px";
+    this.menuGlove.style.top = (rect.top + rect.height * 0.46) + "px";
+  },
+
+  unmountMenuGlove() {
+    if (this.menuGlove) {
+      this.menuGlove.remove();
+      this.menuGlove = null;
+    }
+
+    if (this.menuGloveResizeHandler) {
+      window.removeEventListener("resize", this.menuGloveResizeHandler);
+      this.menuGloveResizeHandler = null;
+    }
+  },
+
+  exitMenuPhase() {
+    const menuScreen = document.getElementById("menuScreen");
+    const classicBtn = document.getElementById("classicModeBtn");
+
+    if (menuScreen) menuScreen.classList.remove("tutorial-spotlight");
+    if (classicBtn) classicBtn.classList.remove("tutorial-pulse");
+    document.body.classList.remove("tutorial-locked");
+
+    this.unmountMenuGlove();
+  },
+
+  // Appelé par menu.js au clic sur le bouton Classic
+  handleClassicTap() {
+    if (!this.active || this.phase !== "menu") return;
+
+    this.exitMenuPhase();
+    this.phase = "awaitingGame";
+    document.body.classList.add("tutorial-locked-game");
+  },
+
+  // ---------- Étapes de tracé (appelées depuis game.js) ----------
+
+  // Hook A : Game.setupNextBlock() demande le nombre de blocs imposé.
+  // Retourne null pour laisser la génération aléatoire normale reprendre.
+  nextRequiredBlocks() {
+    if (!this.active) return null;
+    if (this.phase !== "awaitingGame" && this.phase !== "trace") return null;
+
+    this.traceIndex += 1;
+
+    if (this.traceIndex >= this.traces.length) {
+      this.phase = "postTrace";
+      return null;
+    }
+
+    this.phase = "trace";
+    this.pathVisible = false;
+
+    const idx = this.traceIndex;
+    const delay = idx === 0 ? 450 : 600;
+
+    setTimeout(() => {
+      if (this.active && this.phase === "trace" && this.traceIndex === idx) {
+        this.pathVisible = true;
+      }
+    }, delay);
+
+    return this.traces[this.traceIndex].required;
+  },
+
+  // Hook B : appelé en toute fin de Game.validate()
+  afterValidate() {
     if (!this.active) return;
-    this.step = 1;
-    document.body.classList.remove("tutorial-menu");
-    document.body.classList.add("tutorial-game");
-    if (this.gameGlove) this.gameGlove.style.opacity = "1";
+
+    if (this.phase === "postTrace") {
+      this.phase = "spawning";
+      setTimeout(() => this.beginSpawnSequence(), 650);
+    }
   },
 
-  required() { return (this.paths[this.step] || []).length; },
+  // Hook : appelé par Game.canAddCell() pour restreindre le tracé aux
+  // seules cases invitées pendant le tutoriel.
+  isCellAllowed(x, y, currentPath) {
+    if (!this.active) return true;
+    if (this.phase !== "trace") return false;
 
-  canAdd(x, y) {
-    const path = this.paths[this.step] || [];
-    const idx = Game.path.length;
-    if (idx >= path.length) return false;
-    const t = path[idx];
-    return t.x === x && t.y === y;
+    const trace = this.traces[this.traceIndex];
+    if (!trace) return false;
+
+    const expected = trace.path[currentPath.length];
+    return !!expected && expected.x === x && expected.y === y;
   },
 
-  onValidated() {
-    if (this.step < 3) this.step++;
-    else this.complete();
+  isGameLocked() {
+    return this.active && this.phase !== "menu" && this.phase !== "idle";
   },
 
-  complete() {
-    this.spawn5();
-    this.active = false;
-    this.step = 4;
-    Storage.setTutorialDone();
-    document.body.classList.remove("tutorial-game");
-    if (this.gameGlove) this.gameGlove.style.opacity = "0";
-    if (this._origSetup) this._origSetup();
-  },
+  // ---------- Apparition des 5 blocs aléatoires ----------
+  beginSpawnSequence() {
+    if (!this.active) return;
 
-  spawn5() {
-    const cells = [];
-    for (let y = 0; y < Game.SIZE; y++)
-      for (let x = 0; x < Game.SIZE; x++)
-        if (Game.cells[y][x] === 0) cells.push({ x, y });
-    const pick = Game.shuffleArray(cells).slice(0, 5);
-    pick.forEach(c => {
-      Game.cells[c.y][c.x] = 2;
-      Game.cellAnims[`${c.x},${c.y}`] = { start: Game.gameNow, type: "spawn" };
+    const cells = Game.chooseObstacleCells(5);
+
+    if (cells.length === 0) {
+      this.finish();
+      return;
+    }
+
+    cells.forEach((cell, i) => {
+      setTimeout(() => {
+        if (!this.active) return;
+
+        Game.cells[cell.y][cell.x] = 3;
+        Game.cellAnims[`${cell.x},${cell.y}`] = { start: Game.gameNow, type: "spawn" };
+        Game.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
+
+        if (typeof GameAudio.playBlockSpawn === "function") {
+          GameAudio.playBlockSpawn(i);
+        }
+        Haptics.vibrate(10);
+
+        if (i === cells.length - 1) {
+          setTimeout(() => this.finish(), this.END_DELAY);
+        }
+      }, i * this.SPAWN_STAGGER);
     });
   },
 
-  drawHighlights() {
-    const ctx = Game.ctx;
-    const path = this.paths[this.step] || [];
-    const start = Game.path.length;
-    const cell = Game.getCellSize();
-    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
-    for (let i = start; i < path.length; i++) {
-      const c = path[i];
-      const px = c.x * cell, py = c.y * cell;
-      const pad = cell * 0.035, box = cell - pad * 2, r = cell * 0.16;
+  finish() {
+    this.active = false;
+    this.phase = "done";
+    this.pathVisible = false;
+    this.traceIndex = -1;
+
+    document.body.classList.remove("tutorial-locked-game");
+    Storage.setTutorialDone();
+  },
+
+  // ---------- Rendu canvas (appelé depuis Game.draw()) ----------
+  drawOnCanvas(ctx, now) {
+    if (!this.pathVisible || this.phase !== "trace") return;
+
+    const trace = this.traces[this.traceIndex];
+    if (!trace) return;
+
+    const doneCount = Game.path.length;
+
+    this.drawHighlights(ctx, now, trace, doneCount);
+
+    if (!Game.drawing) {
+      this.drawGlovePath(ctx, now, trace);
+    }
+  },
+
+  drawHighlights(ctx, now, trace, doneCount) {
+    const cellSize = Game.getCellSize();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+
+    const pad = cellSize * 0.035;
+    const box = cellSize - pad * 2;
+    const r = cellSize * 0.16;
+
+    for (let i = doneCount; i < trace.path.length; i++) {
+      const cell = trace.path[i];
+      const px = cell.x * cellSize;
+      const py = cell.y * cellSize;
+
       ctx.save();
-      ctx.globalAlpha = 0.25 + 0.35 * pulse;
+      ctx.strokeStyle = "#faf3e1";
+      ctx.lineWidth = Math.max(2, cellSize * 0.055);
+      ctx.globalAlpha = 0.4 + 0.35 * pulse;
+      Game.roundRectPath(px + pad, py + pad, box, box, r);
+      ctx.stroke();
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.1 + 0.1 * pulse;
       ctx.fillStyle = "#faf3e1";
       Game.roundRectPath(px + pad, py + pad, box, box, r);
       ctx.fill();
@@ -159,31 +263,68 @@ const Tutorial = {
     }
   },
 
-  positionGameGlove() {
-    const g = this.gameGlove;
-    if (!g) return;
-    if (!this.active || this.step < 1 || this.step > 3) { g.style.opacity = "0"; return; }
-    const path = this.paths[this.step] || [];
-    const remaining = path.slice(Game.path.length);
-    if (remaining.length === 0) { g.style.opacity = "0"; return; }
-    g.style.opacity = "1";
-    const period = 650;
-    const t = (performance.now() % (period * remaining.length)) / period;
-    const i = Math.floor(t);
-    const f = t - i;
-    const a = remaining[i];
-    const b = remaining[Math.min(i + 1, remaining.length - 1)];
-    const move = Math.min(1, f / 0.6);
-    const e = 1 - Math.pow(1 - move, 3);
-    const cx = a.x + (b.x - a.x) * e;
-    const cy = a.y + (b.y - a.y) * e;
-    const dip = f > 0.6 ? Math.sin(((f - 0.6) / 0.4) * Math.PI) * 5 : 0;
-    const canvas = Game.canvas;
-    const pad = 6;
-    const cellPx = canvas.clientWidth / Game.SIZE;
-    const x = pad + (cx + 0.5) * cellPx;
-    const y = pad + (cy + 0.5) * cellPx;
-    g.style.left = (x - 30) + "px";
-    g.style.top = (y - 2 + dip) + "px";
+  drawGlovePath(ctx, now, trace) {
+    const path = trace.path;
+    const segments = path.length - 1;
+    if (segments < 0) return;
+
+    const loopDuration = 700 + segments * 240;
+    const pause = 420;
+    const total = loopDuration + pause;
+    const t = now % total;
+
+    let x, y, alpha, angle = 0;
+
+    if (t < loopDuration) {
+      const progress = t / loopDuration;
+      const segFloat = segments === 0 ? 0 : progress * segments;
+      const segIndex = Math.min(Math.max(segments - 1, 0), Math.floor(segFloat));
+      const segT = segments === 0 ? 0 : segFloat - segIndex;
+
+      const a = path[segIndex];
+      const b = path[Math.min(segments, segIndex + 1)];
+
+      const ax = Game.getCellCenterX(a.x);
+      const ay = Game.getCellCenterY(a.y);
+      const bx = Game.getCellCenterX(b.x);
+      const by = Game.getCellCenterY(b.y);
+
+      x = ax + (bx - ax) * segT;
+      y = ay + (by - ay) * segT;
+
+      angle = Math.atan2(by - ay, bx - ax) + Math.PI * 0.75;
+      alpha = Math.min(1, progress * 7) * Math.min(1, (1 - progress) * 7 + 0.12);
+    } else {
+      alpha = 0;
+      x = Game.getCellCenterX(path[0].x);
+      y = Game.getCellCenterY(path[0].y);
+    }
+
+    if (alpha <= 0.02) return;
+
+    this.drawGloveShape(ctx, x, y, Game.getCellSize(), alpha, angle);
+  },
+
+  drawGloveShape(ctx, x, y, cellSize, alpha, angle) {
+    const img = this.gloveImage;
+    if (!img || !img.complete || !img.naturalWidth) return;
+
+    const drawW = cellSize * 1.55;
+    const drawH = drawW * (img.naturalHeight / img.naturalWidth);
+    const tipX = this.TIP_X_RATIO * drawW;
+    const tipY = this.TIP_Y_RATIO * drawH;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    ctx.shadowColor = "rgba(0,0,0,0.4)";
+    ctx.shadowBlur = drawW * 0.1;
+    ctx.shadowOffsetX = drawW * 0.03;
+    ctx.shadowOffsetY = drawW * 0.05;
+
+    ctx.drawImage(img, -tipX, -tipY, drawW, drawH);
+    ctx.restore();
   }
 };
