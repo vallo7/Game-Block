@@ -225,6 +225,19 @@ const GameAudio = {
     this.musicNodes = [];
   },
 
+  // Gamme pentatonique majeure : sert à composer des petites suites de notes
+  // harmonieuses (playClear/playPraise/playColorShift) au lieu de sauts de
+  // fréquence arbitraires.
+  PENTATONIC: [1, 1.125, 1.25, 1.5, 1.6667],
+
+  noteFreq(root, step) {
+    const scale = this.PENTATONIC;
+    const octave = Math.floor(step / scale.length);
+    const degree = ((step % scale.length) + scale.length) % scale.length;
+
+    return root * scale[degree] * Math.pow(2, octave);
+  },
+
   playTone(freq, options = {}) {
     if (!this.soundEnabled) return;
     if (document.hidden) return;
@@ -242,25 +255,41 @@ const GameAudio = {
 
     const now = this.ctx.currentTime + delay;
 
-    const oscillator = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(Math.max(freq * 4.5, 850), now);
+    filter.Q.value = 0.5;
+
     const gainNode = this.ctx.createGain();
-
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(freq, now);
-
-    if (slideTo) {
-      oscillator.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
-    }
-
     gainNode.gain.setValueAtTime(0.0001, now);
-    gainNode.gain.exponentialRampToValueAtTime(gain, now + 0.012);
+    gainNode.gain.exponentialRampToValueAtTime(gain, now + 0.011);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    oscillator.connect(gainNode);
+    filter.connect(gainNode);
     gainNode.connect(this.master);
 
-    oscillator.start(now);
-    oscillator.stop(now + duration + 0.03);
+    // Deux voix très légèrement désaccordées (chorus doux) pour un timbre
+    // plus rond et plus "pro" qu'un simple oscillateur nu.
+    [-6, 6].forEach((cents) => {
+      const oscillator = this.ctx.createOscillator();
+      const voiceGain = this.ctx.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(freq, now);
+      oscillator.detune.value = cents;
+
+      if (slideTo) {
+        oscillator.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+      }
+
+      voiceGain.gain.value = 0.55;
+
+      oscillator.connect(voiceGain);
+      voiceGain.connect(filter);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.03);
+    });
   },
 
   playClick() {
@@ -291,16 +320,16 @@ const GameAudio = {
     const notes = Math.min(count + 2, 5);
 
     for (let i = 0; i < notes; i++) {
-      this.playTone(base * Math.pow(1.19, i), {
-        duration: 0.09,
+      this.playTone(this.noteFreq(base, i), {
+        duration: 0.1,
         type: "triangle",
-        gain: 0.36,
-        delay: i * 0.032
+        gain: 0.34,
+        delay: i * 0.034
       });
     }
 
     if (count > 1) {
-      this.playTone(base * 2, { duration: 0.18, type: "sine", gain: 0.38, delay: 0.12 });
+      this.playTone(base * 2, { duration: 0.2, type: "sine", gain: 0.36, delay: 0.13 });
     }
   },
 
@@ -331,21 +360,21 @@ const GameAudio = {
     const notes = 3 + level;
 
     for (let i = 0; i < notes; i++) {
-      this.playTone(base * Math.pow(1.22, i), {
-        duration: 0.1,
+      this.playTone(this.noteFreq(base, i), {
+        duration: 0.11,
         type: "triangle",
-        gain: 0.34,
-        delay: i * 0.05
+        gain: 0.32,
+        delay: i * 0.052
       });
     }
 
     if (level >= 3) {
-      this.playTone(base / 2, { duration: 0.3, type: "sine", gain: 0.3, delay: 0.1 });
+      this.playTone(base / 2, { duration: 0.3, type: "sine", gain: 0.28, delay: 0.1 });
     }
 
     if (level >= 5) {
-      this.playTone(base * 3, { duration: 0.2, type: "sine", gain: 0.3, delay: 0.3 });
-      this.playTone(base * 4, { duration: 0.2, type: "sine", gain: 0.24, delay: 0.38 });
+      this.playTone(base * 2, { duration: 0.22, type: "sine", gain: 0.28, delay: 0.3 });
+      this.playTone(base * 2.5, { duration: 0.22, type: "sine", gain: 0.22, delay: 0.38 });
     }
   },
 
@@ -353,17 +382,17 @@ const GameAudio = {
     const base = 523;
 
     for (let i = 0; i < 4; i++) {
-      this.playTone(base * Math.pow(1.26, i), {
-        duration: 0.1,
+      this.playTone(this.noteFreq(base, i), {
+        duration: 0.11,
         type: "triangle",
-        gain: 0.36,
-        delay: i * 0.05
+        gain: 0.34,
+        delay: i * 0.055
       });
     }
   },
 
   playError() {
-    this.playTone(110, { duration: 0.1, type: "square", gain: 0.2, slideTo: 70 });
+    this.playTone(110, { duration: 0.1, type: "square", gain: 0.16, slideTo: 70 });
   },
 
   playCountdown() {
@@ -371,7 +400,7 @@ const GameAudio = {
   },
 
   playGameOver() {
-    this.playTone(220, { duration: 0.22, type: "sawtooth", gain: 0.2, slideTo: 70 });
+    this.playTone(220, { duration: 0.22, type: "sawtooth", gain: 0.17, slideTo: 70 });
   },
 
   playDefeatLong(durationMs = 3200) {
@@ -386,17 +415,24 @@ const GameAudio = {
 
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
+    const filter1 = this.ctx.createBiquadFilter();
+
+    filter1.type = "lowpass";
+    filter1.frequency.setValueAtTime(900, now);
+    filter1.frequency.exponentialRampToValueAtTime(260, now + duration);
+    filter1.Q.value = 0.4;
 
     osc1.type = "sawtooth";
     osc1.frequency.setValueAtTime(280, now);
     osc1.frequency.exponentialRampToValueAtTime(55, now + duration);
 
     gain1.gain.setValueAtTime(0.0001, now);
-    gain1.gain.exponentialRampToValueAtTime(0.28, now + 0.08);
-    gain1.gain.setValueAtTime(0.28, now + duration - 0.6);
+    gain1.gain.exponentialRampToValueAtTime(0.24, now + 0.08);
+    gain1.gain.setValueAtTime(0.24, now + duration - 0.6);
     gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    osc1.connect(gain1);
+    osc1.connect(filter1);
+    filter1.connect(gain1);
     gain1.connect(this.master);
 
     osc1.start(now);
