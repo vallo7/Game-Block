@@ -3,7 +3,7 @@ const Menu = {
     const classicModeBtn = document.getElementById("classicModeBtn");
 
     classicModeBtn.addEventListener("click", () => {
-      if (window.Tutorial) Tutorial.handleClassicTap();
+      Tutorial.handleClassicTap();
       GameAudio.unlock();
       GameAudio.playClick();
       Haptics.vibrate(15);
