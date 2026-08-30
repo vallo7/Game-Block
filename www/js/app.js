@@ -6,7 +6,7 @@ Theme.init();
 Settings.load();
 Game.init();
 Menu.init();
-if (window.Tutorial) Tutorial.init();
+Tutorial.init();
 this.bindUI();
 this.bindBackButton();
 this.bindButtonPop();
@@ -50,7 +50,7 @@ this.handleBack();
 }
 },
 handleBack() {
-if (window.Tutorial && Tutorial.isGameLocked()) {
+if (Tutorial.isGameLocked()) {
 Haptics.vibrate(10);
 return;
 }
