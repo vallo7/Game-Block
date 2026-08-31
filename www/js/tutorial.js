@@ -240,7 +240,7 @@ const Tutorial = {
 
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
 
     for (let i = doneCount; i < trace.path.length; i++) {
       const cell = trace.path[i];
@@ -248,7 +248,7 @@ const Tutorial = {
       const py = cell.y * cellSize;
 
       ctx.save();
-      ctx.strokeStyle = "#faf3e1";
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = Math.max(2, cellSize * 0.055);
       ctx.globalAlpha = 0.4 + 0.35 * pulse;
       Game.roundRectPath(px + pad, py + pad, box, box, r);
@@ -256,7 +256,7 @@ const Tutorial = {
 
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 0.1 + 0.1 * pulse;
-      ctx.fillStyle = "#faf3e1";
+      ctx.fillStyle = "#ffffff";
       Game.roundRectPath(px + pad, py + pad, box, box, r);
       ctx.fill();
       ctx.restore();
