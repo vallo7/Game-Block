@@ -1,12 +1,12 @@
 /*
-  Tutoriel de première ouverture — 100% visuel, sans texte.
+  Tutoriel de première ouverture.
   Étapes : menu (inviter à toucher "Classic") -> 3 tracés scriptés sur la
-  grille -> apparition de 5 blocs aléatoires -> fin, jeu normal ensuite.
+  grille -> apparition de 5 blocs aléatoires -> message de fin -> jeu normal.
   Séquence de cases conçue spécifiquement pour la grille 8x8 (Game.SIZE).
 */
 const Tutorial = {
   active: false,
-  phase: "idle", // idle | menu | awaitingGame | trace | postTrace | spawning | done
+  phase: "idle", // idle | menu | awaitingGame | trace | postTrace | spawning | outro | done
 
   traceIndex: -1,
   pathVisible: false,
@@ -14,6 +14,8 @@ const Tutorial = {
   menuGlove: null,
   menuGloveResizeHandler: null,
   gloveImage: null,
+  captionEl: null,
+  outroEl: null,
 
   // Repères mesurés sur img/tutorial-hand.png : position de la pointe du
   // doigt en fraction de la largeur/hauteur de l'image.
@@ -21,14 +23,14 @@ const Tutorial = {
   TIP_Y_RATIO: 0.008,
 
   traces: [
-    { required: 4, path: [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 5 }] },
-    { required: 6, path: [{ x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 }, { x: 7, y: 6 }, { x: 7, y: 7 }] },
-    { required: 6, path: [{ x: 7, y: 5 }, { x: 7, y: 4 }, { x: 7, y: 3 }, { x: 7, y: 2 }, { x: 7, y: 1 }, { x: 7, y: 0 }] }
+    { required: 4, caption: "DRAW A LINE", path: [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 5 }] },
+    { required: 6, caption: "FINISH THE LINE", path: [{ x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 }, { x: 7, y: 6 }, { x: 7, y: 7 }] },
+    { required: 6, caption: "CLEAR THE COLUMN", path: [{ x: 7, y: 5 }, { x: 7, y: 4 }, { x: 7, y: 3 }, { x: 7, y: 2 }, { x: 7, y: 1 }, { x: 7, y: 0 }] }
   ],
 
-  SPLASH_DELAY: 2250, // micro délai avant le lancement du tutoriel (après le splash)
+  SPLASH_DELAY: 3600, // micro délai avant le lancement du tutoriel (après le splash)
   SPAWN_STAGGER: 300, // délai entre chaque bloc d'obstacle qui apparaît
-  END_DELAY: 600, // micro délai après la fin du tutoriel
+  END_DELAY: 500, // micro délai avant le message de fin
 
   // ---------- Entrée ----------
   init() {
@@ -39,6 +41,13 @@ const Tutorial = {
 
     this.active = true;
     this.phase = "menu";
+
+    // Rien n'est jouable avant que le tutoriel ne se présente : on verrouille
+    // tout de suite, y compris le bouton Classic lui-même.
+    document.body.classList.add("tutorial-locked");
+
+    const classicBtn = document.getElementById("classicModeBtn");
+    if (classicBtn) classicBtn.classList.add("tutorial-pending");
 
     setTimeout(() => this.enterMenuPhase(), this.SPLASH_DELAY);
   },
@@ -51,10 +60,14 @@ const Tutorial = {
     const classicBtn = document.getElementById("classicModeBtn");
 
     if (menuScreen) menuScreen.classList.add("tutorial-spotlight");
-    if (classicBtn) classicBtn.classList.add("tutorial-pulse");
-    document.body.classList.add("tutorial-locked");
+
+    if (classicBtn) {
+      classicBtn.classList.remove("tutorial-pending");
+      classicBtn.classList.add("tutorial-pulse");
+    }
 
     this.mountMenuGlove();
+    this.showCaption("TAP TO START");
   },
 
   mountMenuGlove() {
@@ -105,10 +118,11 @@ const Tutorial = {
     const classicBtn = document.getElementById("classicModeBtn");
 
     if (menuScreen) menuScreen.classList.remove("tutorial-spotlight");
-    if (classicBtn) classicBtn.classList.remove("tutorial-pulse");
+    if (classicBtn) classicBtn.classList.remove("tutorial-pulse", "tutorial-pending");
     document.body.classList.remove("tutorial-locked");
 
     this.unmountMenuGlove();
+    this.hideCaption();
   },
 
   // Appelé par menu.js au clic sur le bouton Classic
@@ -118,6 +132,25 @@ const Tutorial = {
     this.exitMenuPhase();
     this.phase = "awaitingGame";
     document.body.classList.add("tutorial-locked-game");
+  },
+
+  // ---------- Légendes détachées du fond ----------
+  showCaption(text) {
+    if (!this.captionEl) {
+      const el = document.createElement("div");
+      el.className = "tutorial-caption";
+      document.body.appendChild(el);
+      this.captionEl = el;
+    }
+
+    this.captionEl.textContent = text;
+    this.captionEl.classList.remove("show");
+    void this.captionEl.offsetWidth;
+    this.captionEl.classList.add("show");
+  },
+
+  hideCaption() {
+    if (this.captionEl) this.captionEl.classList.remove("show");
   },
 
   // ---------- Étapes de tracé (appelées depuis game.js) ----------
@@ -144,6 +177,7 @@ const Tutorial = {
     setTimeout(() => {
       if (this.active && this.phase === "trace" && this.traceIndex === idx) {
         this.pathVisible = true;
+        this.showCaption(this.traces[idx].caption);
       }
     }, delay);
 
@@ -154,8 +188,13 @@ const Tutorial = {
   afterValidate() {
     if (!this.active) return;
 
+    if (this.phase === "trace") {
+      this.hideCaption();
+    }
+
     if (this.phase === "postTrace") {
       this.phase = "spawning";
+      this.hideCaption();
       setTimeout(() => this.beginSpawnSequence(), 650);
     }
   },
@@ -184,7 +223,7 @@ const Tutorial = {
     const cells = Game.chooseObstacleCells(5);
 
     if (cells.length === 0) {
-      this.finish();
+      this.showOutro();
       return;
     }
 
@@ -202,10 +241,45 @@ const Tutorial = {
         Haptics.vibrate(10);
 
         if (i === cells.length - 1) {
-          setTimeout(() => this.finish(), this.END_DELAY);
+          setTimeout(() => this.showOutro(), this.END_DELAY);
         }
       }, i * this.SPAWN_STAGGER);
     });
+  },
+
+  // ---------- Message de fin ----------
+  showOutro() {
+    if (!this.active) return;
+
+    this.phase = "outro";
+
+    const overlay = document.createElement("div");
+    overlay.className = "tutorial-outro";
+
+    const card = document.createElement("div");
+    card.className = "tutorial-outro-card";
+    card.textContent = "GAME ON!";
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    this.outroEl = overlay;
+
+    if (typeof GameAudio.playTutorialDone === "function") {
+      GameAudio.playTutorialDone();
+    }
+    Haptics.vibrate(40);
+
+    const dismiss = () => {
+      overlay.removeEventListener("pointerdown", dismiss);
+      overlay.classList.add("out");
+      setTimeout(() => {
+        overlay.remove();
+        if (this.outroEl === overlay) this.outroEl = null;
+        this.finish();
+      }, 260);
+    };
+
+    overlay.addEventListener("pointerdown", dismiss);
   },
 
   finish() {
@@ -215,6 +289,7 @@ const Tutorial = {
     this.traceIndex = -1;
 
     document.body.classList.remove("tutorial-locked-game");
+    this.hideCaption();
     Storage.setTutorialDone();
   },
 
@@ -238,9 +313,9 @@ const Tutorial = {
     const cellSize = Game.getCellSize();
     const pulse = 0.5 + 0.5 * Math.sin(now / 260);
 
-    const pad = cellSize * 0.035;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
 
     for (let i = doneCount; i < trace.path.length; i++) {
       const cell = trace.path[i];
