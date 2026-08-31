@@ -359,19 +359,28 @@ const Game = {
 
     if (sizeChanged || !this.frameGradients[1]) {
       let g = ctx.createLinearGradient(0, 0, 0, cellSize);
-      g.addColorStop(0, "#faf3e1");
-      g.addColorStop(1, "#e3d5b8");
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(1, "#e2e2e2");
       this.frameGradients[1] = g;
 
       g = ctx.createLinearGradient(0, 0, 0, cellSize);
-      g.addColorStop(0, "#faf3e1");
-      g.addColorStop(1, "#e0d2b4");
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(1, "#dcdcdc");
       this.frameGradients[2] = g;
 
       g = ctx.createLinearGradient(0, 0, 0, cellSize);
       g.addColorStop(0, "#ffffff");
       g.addColorStop(1, "#9fd8ff");
       this.frameGradients.ice = g;
+
+      const gloss = ctx.createRadialGradient(
+        cellSize * 0.32, cellSize * 0.24, 0,
+        cellSize * 0.34, cellSize * 0.26, cellSize * 0.62
+      );
+      gloss.addColorStop(0, "rgba(255,255,255,0.9)");
+      gloss.addColorStop(0.5, "rgba(255,255,255,0.22)");
+      gloss.addColorStop(1, "rgba(255,255,255,0)");
+      this.glossGradient = gloss;
     }
 
     if (sizeChanged || themeChanged) {
@@ -1052,7 +1061,7 @@ const Game = {
     if (count >= 4) return "#ff9f1a";
     if (count === 3) return "#ffb100";
     if (count === 2) return Theme.current.light;
-    return "#faf3e1";
+    return "#ffffff";
   },
 
   showPraise(level, emptied) {
@@ -1071,6 +1080,22 @@ const Game = {
     GameAudio.playPraise(level);
     Haptics.vibrate(30 + level * 15);
 
+    // Gerbe de particules proportionnelle au niveau, éparpillée sur la
+    // grille pour accompagner le mot d'encouragement.
+    const bursts = 2 + level * 2;
+    for (let i = 0; i < bursts; i++) {
+      const bx = Math.floor(Math.random() * this.SIZE);
+      const by = Math.floor(Math.random() * this.SIZE);
+      this.spawnParticles(bx, by, level >= 4 ? 5 : 3, level >= 4 ? null : Theme.current.light);
+    }
+
+    if (level >= 2) {
+      this.blockShake = {
+        start: this.gameNow,
+        duration: 260 + level * 110
+      };
+    }
+
     if (level >= 3 && !emptied) {
       this.lightWave = {
         start: this.gameNow,
@@ -1078,12 +1103,11 @@ const Game = {
       };
     }
 
-    if (level >= 5) {
-      this.blockShake = {
-        start: this.gameNow,
-        duration: 800
-      };
+    if (level >= 4) {
+      this.spawnShockwave(this.canvas.width / 2, this.canvas.height / 2, this.canvas.width * 0.4);
+    }
 
+    if (level >= 5) {
       const screen = document.getElementById("gameScreen");
       if (screen) {
         screen.classList.remove("quake");
@@ -1125,10 +1149,19 @@ const Game = {
       this.canvas.width * 0.55
     );
 
-    for (let i = 0; i < 6; i++) {
+    setTimeout(() => {
+      this.spawnShockwave(
+        this.canvas.width / 2,
+        this.canvas.height / 2,
+        this.canvas.width * 0.42
+      );
+    }, 160);
+
+    for (let i = 0; i < 10; i++) {
       const x = Math.floor(Math.random() * this.SIZE);
       const y = Math.floor(Math.random() * this.SIZE);
-      this.spawnParticles(x, y, 6, "#faf3e1");
+      this.spawnParticles(x, y, 7, "#ffffff");
+      if (i % 2 === 0) this.spawnDebris(x, y, Theme.current.light, 2);
     }
 
     this.timeScale = 0.4;
@@ -1136,6 +1169,11 @@ const Game = {
     this.colorFx = {
       start: this.gameNow,
       duration: 900
+    };
+
+    this.blockShake = {
+      start: this.gameNow,
+      duration: 700
     };
 
     Theme.shift(900);
@@ -1188,7 +1226,7 @@ const Game = {
     const clearedKeys = new Set();
 
     for (const y of fullRows) {
-      this.lineFlashes.push({ type: "row", index: y, start: this.gameNow });
+      this.lineFlashes.push({ type: "row", index: y, start: this.gameNow, power: count });
 
       for (let x = 0; x < this.SIZE; x++) {
         clearedKeys.add(`${x},${y}`);
@@ -1196,7 +1234,7 @@ const Game = {
     }
 
     for (const x of fullCols) {
-      this.lineFlashes.push({ type: "col", index: x, start: this.gameNow });
+      this.lineFlashes.push({ type: "col", index: x, start: this.gameNow, power: count });
 
       for (let y = 0; y < this.SIZE; y++) {
         clearedKeys.add(`${x},${y}`);
@@ -1214,15 +1252,17 @@ const Game = {
     }
 
     let i = 0;
+    const power = Math.min(5, count);
 
     for (const key of clearedKeys) {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
-      const color = value === 3 ? Theme.current.dark : "#faf3e1";
+      const color = value === 3 ? Theme.current.dark : "#ffffff";
 
       this.cellFlashes.push({
         x,
         y,
+        power,
         start: this.gameNow + (i % 8) * 22
       });
 
@@ -1230,11 +1270,12 @@ const Game = {
         x,
         y,
         value,
+        power,
         start: this.gameNow + (i % 8) * 22
       });
 
-      this.spawnDebris(x, y, color, 3);
-      this.spawnParticles(x, y, 8, null);
+      this.spawnDebris(x, y, color, 3 + power);
+      this.spawnParticles(x, y, 8 + power * 2, null);
 
       i++;
     }
@@ -1452,7 +1493,7 @@ const Game = {
       const row = Math.floor(Math.random() * this.SIZE);
 
       for (let x = 0; x < this.SIZE; x++) {
-        this.spawnDebris(x, row, "#faf3e1", 2);
+        this.spawnDebris(x, row, "#ffffff", 2);
         this.cells[row][x] = 0;
       }
 
@@ -1528,16 +1569,21 @@ const Game = {
     for (let i = 0; i < amount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = cellSize * (0.05 + Math.random() * 0.14);
+      const big = Math.random() > 0.72;
 
       this.particles.push({
         x: cx,
         y: cy,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - cellSize * 0.03,
-        size: cellSize * (0.03 + Math.random() * 0.05),
+        size: cellSize * (big ? 0.07 + Math.random() * 0.04 : 0.03 + Math.random() * 0.04),
+        rotation: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.12,
+        shape: Math.random() > 0.6 ? "diamond" : "circle",
+        glow: big,
         life: 1,
         decay: 0.018 + Math.random() * 0.02,
-        color: forcedColor || (Math.random() > 0.45 ? "#faf3e1" : Theme.current.light)
+        color: forcedColor || (Math.random() > 0.45 ? "#ffffff" : Theme.current.light)
       });
     }
   },
@@ -1557,6 +1603,7 @@ const Game = {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - cellSize * 0.04,
         size: cellSize * (0.08 + Math.random() * 0.10),
+        stretch: 0.55 + Math.random() * 0.8,
         rotation: Math.random() * Math.PI,
         vr: (Math.random() - 0.5) * 0.24,
         life: 1,
@@ -1667,7 +1714,7 @@ const Game = {
       w * 0.5 + Math.cos(t * 0.42) * w * 0.3,
       h * 0.75 + Math.sin(t * 0.5) * h * 0.14,
       w * 0.5,
-      "250,243,225",
+      "255,255,255",
       0.04
     );
   },
@@ -1679,7 +1726,7 @@ const Game = {
       this.pointer.x,
       this.pointer.y,
       this.getCellSize() * 2.4,
-      "250,243,225",
+      "255,255,255",
       0.12
     );
   },
@@ -1693,7 +1740,7 @@ const Game = {
 
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
@@ -1706,7 +1753,7 @@ const Game = {
         this.roundRectPath(px + pad, py + pad, box, box, r);
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(250, 243, 225, 0.07)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
         ctx.lineWidth = Math.max(1, cellSize * 0.012);
         this.roundRectPath(px + pad, py + pad, box, box, r);
         ctx.stroke();
@@ -1762,7 +1809,7 @@ const Game = {
       return 0;
     }
 
-    const power = 1 - age / this.blockShake.duration;
+    const power = Math.pow(1 - age / this.blockShake.duration, 2);
     const phase = (x * 13 + y * 7) * 40;
 
     return Math.sin((now + phase) / 26) * this.getCellSize() * 0.07 * power;
@@ -1854,7 +1901,7 @@ const Game = {
         const py = y * cellSize;
         const pad = cellSize * 0.035;
         const box = cellSize - pad * 2;
-        const r = cellSize * 0.16;
+        const r = cellSize * 0.2;
         const center = cellSize / 2;
 
         if (glow > 0) {
@@ -1863,7 +1910,7 @@ const Game = {
           ctx.translate(px + center, py + center);
           ctx.scale(scale, scale);
           ctx.translate(-center, -center);
-          ctx.fillStyle = "#faf3e1";
+          ctx.fillStyle = "#ffffff";
           this.roundRectPath(pad, pad, box, box, r);
           ctx.fill();
           ctx.restore();
@@ -1921,7 +1968,7 @@ const Game = {
     const py = y * cellSize;
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
     const center = cellSize / 2;
 
     ctx.save();
@@ -1932,17 +1979,32 @@ const Game = {
     ctx.scale(scale, scale);
     ctx.translate(-center, -center);
 
-    ctx.fillStyle = this.frameGradients[value] || "#ffffff";
     this.roundRectPath(pad, pad, box, box, r);
+    ctx.fillStyle = this.frameGradients[value] || "#ffffff";
     ctx.fill();
 
-    ctx.fillStyle = "rgba(250, 243, 225, 0.4)";
-    this.roundRectPath(pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
-    ctx.fill();
+    ctx.save();
+    ctx.clip();
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-    this.roundRectPath(pad + box * 0.1, pad + box * 0.74, box * 0.8, box * 0.16, r * 0.7);
-    ctx.fill();
+    // Ombre basse fondue (au lieu d'une bande à bord dur)
+    const shade = ctx.createLinearGradient(0, box * 0.6, 0, box);
+    shade.addColorStop(0, "rgba(0, 0, 0, 0)");
+    shade.addColorStop(1, "rgba(0, 0, 0, 0.14)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(pad, pad, box, box);
+
+    // Brillance façon gel candy, en dégradé radial plutôt qu'une bande plate
+    if (this.glossGradient) {
+      ctx.fillStyle = this.glossGradient;
+      ctx.fillRect(pad, pad, box, box);
+    }
+
+    ctx.restore();
+
+    ctx.lineWidth = Math.max(1, cellSize * 0.02);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
+    this.roundRectPath(pad, pad, box, box, r);
+    ctx.stroke();
 
     ctx.restore();
   },
@@ -1955,18 +2017,20 @@ const Game = {
 
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
     const center = cellSize / 2;
 
     for (const a of this.destroyAnims) {
       const t = (now - a.start) / 320;
+      const power = Math.min(5, a.power || 1);
+      const boost = 1 + power * 0.09;
 
       const grow = t < 0.3
-        ? 1 + 0.3 * (t / 0.3)
-        : 1.3 * (1 - (t - 0.3) / 0.7);
+        ? 1 + 0.3 * boost * (t / 0.3)
+        : 1.3 * boost * (1 - (t - 0.3) / 0.7);
 
       const alpha = 1 - t;
-      const rot = (t * 0.5) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
+      const rot = (t * (0.5 + power * 0.12)) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
 
       const px = a.x * cellSize;
       const py = a.y * cellSize;
@@ -1983,7 +2047,7 @@ const Game = {
       this.roundRectPath(pad, pad, box, box, r);
       ctx.fill();
 
-      ctx.fillStyle = "rgba(250, 243, 225, 0.4)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
       this.roundRectPath(pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
       ctx.fill();
 
@@ -1999,12 +2063,13 @@ const Game = {
 
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
     const center = cellSize / 2;
 
     for (const flash of this.cellFlashes) {
       const t = (now - flash.start) / 380;
-      const alpha = Math.sin(Math.PI * t);
+      const power = Math.min(5, flash.power || 1);
+      const alpha = Math.sin(Math.PI * t) * (0.85 + power * 0.06);
 
       const px = flash.x * cellSize;
       const py = flash.y * cellSize;
@@ -2016,7 +2081,7 @@ const Game = {
       ctx.translate(px + center, py + center);
       ctx.scale(1.25 + 0.15 * t, 1.25 + 0.15 * t);
       ctx.translate(-center, -center);
-      ctx.fillStyle = "#faf3e1";
+      ctx.fillStyle = "#ffffff";
       this.roundRectPath(pad, pad, box, box, r);
       ctx.fill();
 
@@ -2029,7 +2094,7 @@ const Game = {
       ctx.translate(px + center, py + center);
       ctx.scale(1 + 0.3 * t, 1 + 0.3 * t);
       ctx.translate(-center, -center);
-      ctx.fillStyle = "#faf3e1";
+      ctx.fillStyle = "#ffffff";
       this.roundRectPath(pad, pad, box, box, r);
       ctx.fill();
 
@@ -2095,7 +2160,7 @@ const Game = {
 
     ctx.globalCompositeOperation = "lighter";
 
-    ctx.strokeStyle = `rgba(250, 243, 225, ${alpha * 0.4})`;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
     ctx.lineWidth = thickness * 1.8;
     this.roundRectPath(
       this.canvas.width / 2 - size,
@@ -2106,7 +2171,7 @@ const Game = {
     );
     ctx.stroke();
 
-    ctx.strokeStyle = `rgba(250, 243, 225, ${alpha})`;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.lineWidth = thickness;
     this.roundRectPath(
       this.canvas.width / 2 - size,
@@ -2130,7 +2195,7 @@ const Game = {
 
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(250, 243, 225, 0.2)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
     ctx.lineWidth = cellSize * 0.12;
 
     ctx.beginPath();
@@ -2149,15 +2214,17 @@ const Game = {
     const ctx = this.ctx;
     const cellSize = this.getCellSize();
 
-    this.lineFlashes = this.lineFlashes.filter(item => now - item.start < 340);
+    this.lineFlashes = this.lineFlashes.filter(item => now - item.start < 380);
 
     for (const flash of this.lineFlashes) {
-      const age = (now - flash.start) / 340;
-      const alpha = 0.28 * (1 - age);
+      const power = Math.min(5, flash.power || 1);
+      const age = (now - flash.start) / 380;
+      const flare = Math.max(0, 1 - age * 3.2);
+      const alpha = (0.22 + power * 0.05) * (1 - age) + flare * 0.4;
 
       ctx.save();
-
-      ctx.fillStyle = `rgba(250, 243, 225, ${alpha})`;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
 
       if (flash.type === "row") {
         ctx.fillRect(0, flash.index * cellSize, this.canvas.width, cellSize);
@@ -2192,14 +2259,14 @@ const Game = {
         const head = -trail + (this.canvas.width + trail * 2) * progress;
 
         const gradient = ctx.createLinearGradient(head - trail, 0, head, 0);
-        gradient.addColorStop(0, "rgba(250, 243, 225, 0)");
-        gradient.addColorStop(1, `rgba(250, 243, 225, ${alpha})`);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+        gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
 
         ctx.fillStyle = gradient;
         ctx.fillRect(head - trail, y - thickness / 2, trail, thickness);
 
         if (power >= 3) {
-          ctx.fillStyle = `rgba(250, 243, 225, ${alpha * 0.4})`;
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
           ctx.fillRect(head - trail, y - thickness, trail, thickness * 2);
         }
       } else {
@@ -2207,14 +2274,14 @@ const Game = {
         const head = -trail + (this.canvas.height + trail * 2) * progress;
 
         const gradient = ctx.createLinearGradient(0, head - trail, 0, head);
-        gradient.addColorStop(0, "rgba(250, 243, 225, 0)");
-        gradient.addColorStop(1, `rgba(250, 243, 225, ${alpha})`);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+        gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
 
         ctx.fillStyle = gradient;
         ctx.fillRect(x - thickness / 2, head - trail, thickness, trail);
 
         if (power >= 3) {
-          ctx.fillStyle = `rgba(250, 243, 225, ${alpha * 0.4})`;
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
           ctx.fillRect(x - thickness, head - trail, thickness * 2, trail);
         }
       }
@@ -2235,7 +2302,7 @@ const Game = {
 
       ctx.save();
 
-      ctx.strokeStyle = `rgba(250, 243, 225, ${alpha})`;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.lineWidth = Math.max(1, this.getCellSize() * 0.05 * (1 - age));
 
       ctx.beginPath();
@@ -2254,7 +2321,7 @@ const Game = {
 
     const pad = cellSize * 0.035;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.16;
+    const r = cellSize * 0.2;
     const center = cellSize / 2;
 
     for (const anim of this.cancelAnims) {
@@ -2289,7 +2356,9 @@ const Game = {
     for (const p of this.particles) {
       p.x += p.vx * this.timeScale;
       p.y += p.vy * this.timeScale;
+      p.vx *= Math.pow(0.985, this.timeScale);
       p.vy += this.getCellSize() * 0.004 * this.timeScale;
+      p.rotation += (p.vr || 0) * this.timeScale;
       p.life -= p.decay * this.timeScale;
 
       if (p.life <= 0) continue;
@@ -2299,9 +2368,27 @@ const Game = {
       ctx.globalAlpha = Math.max(p.life, 0);
       ctx.fillStyle = p.color;
 
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      if (p.glow) {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = p.size * 2.2;
+      }
+
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation || 0);
+
+      if (p.shape === "diamond") {
+        ctx.beginPath();
+        ctx.moveTo(0, -p.size);
+        ctx.lineTo(p.size, 0);
+        ctx.lineTo(0, p.size);
+        ctx.lineTo(-p.size, 0);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       ctx.restore();
     }
@@ -2315,6 +2402,7 @@ const Game = {
     for (const p of this.debris) {
       p.x += p.vx * this.timeScale;
       p.y += p.vy * this.timeScale;
+      p.vx *= Math.pow(0.98, this.timeScale);
       p.vy += this.getCellSize() * 0.005 * this.timeScale;
       p.rotation += p.vr * this.timeScale;
       p.life -= p.decay * this.timeScale;
@@ -2325,11 +2413,14 @@ const Game = {
 
       ctx.globalAlpha = Math.max(p.life, 0);
       ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = p.size * 0.8;
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rotation);
 
       const size = p.size;
-      ctx.fillRect(-size / 2, -size / 2, size, size);
+      const stretch = p.stretch || 1;
+      ctx.fillRect((-size / 2) * stretch, -size / 2, size * stretch, size);
 
       ctx.restore();
     }
