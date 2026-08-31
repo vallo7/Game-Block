@@ -153,6 +153,9 @@ const Game = {
 
   reset() {
     this.cells = Array.from({ length: this.SIZE }, () => Array(this.SIZE).fill(0));
+    this.cellColors = {};
+    this.turnColor = null;
+    this.stoneSeeds = {};
 
     this.path = [];
     this.score = 0;
@@ -348,6 +351,59 @@ const Game = {
     }
   },
 
+  // Banque de couleurs vives pour les blocs (inclut les teintes B/L/C/K/O du
+  // logo Game Block) + la teinte "pierre" des obstacles.
+  COLOR_BANK: [
+    { name: "blue", base: "#04b5e7", light: "#87e3fd", dark: "#02475b" },
+    { name: "yellow", base: "#fcc400", light: "#ffe896", dark: "#6d5500" },
+    { name: "green", base: "#6ec705", light: "#b8fb6a", dark: "#213c02" },
+    { name: "purple", base: "#c83bfc", light: "#f2d2fe", dark: "#7a03a6" },
+    { name: "pink", base: "#fc3f8a", light: "#fed6e6", dark: "#aa0345" },
+    { name: "red", base: "#ff3b3b", light: "#ffd4d4", dark: "#ab0000" }
+  ],
+
+  STONE_COLOR: { name: "stone", base: "#9aa3ad", light: "#d7dce1", dark: "#4d545c" },
+
+  pickTurnColor() {
+    const bank = this.COLOR_BANK;
+    const current = Math.floor(Math.random() * bank.length);
+
+    if (this.turnColor) {
+      const currentIndex = bank.findIndex(c => c.name === this.turnColor.name);
+      if (currentIndex === current) {
+        return bank[(current + 1) % bank.length];
+      }
+    }
+
+    return bank[current];
+  },
+
+  getBankColor(name) {
+    if (name === "stone") return this.STONE_COLOR;
+    return this.COLOR_BANK.find(c => c.name === name) || this.COLOR_BANK[0];
+  },
+
+  hexToRgb(hex) {
+    const h = hex.replace("#", "");
+    return {
+      r: parseInt(h.substring(0, 2), 16),
+      g: parseInt(h.substring(2, 4), 16),
+      b: parseInt(h.substring(4, 6), 16)
+    };
+  },
+
+  lerpColor(hexA, hexB, t) {
+    const a = this.hexToRgb(hexA);
+    const b = this.hexToRgb(hexB);
+    const clampT = Math.max(0, Math.min(1, t));
+
+    const r = Math.round(a.r + (b.r - a.r) * clampT);
+    const g = Math.round(a.g + (b.g - a.g) * clampT);
+    const bl = Math.round(a.b + (b.b - a.b) * clampT);
+
+    return `rgb(${r}, ${g}, ${bl})`;
+  },
+
   buildFrameGradients() {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
@@ -381,6 +437,14 @@ const Game = {
       gloss.addColorStop(0.5, "rgba(255,255,255,0.22)");
       gloss.addColorStop(1, "rgba(255,255,255,0)");
       this.glossGradient = gloss;
+
+      this.colorGradients = {};
+      [...this.COLOR_BANK, this.STONE_COLOR].forEach(entry => {
+        const cg = ctx.createLinearGradient(0, 0, 0, cellSize);
+        cg.addColorStop(0, entry.light);
+        cg.addColorStop(1, entry.base);
+        this.colorGradients[entry.name] = cg;
+      });
     }
 
     if (sizeChanged || themeChanged) {
@@ -649,6 +713,7 @@ const Game = {
       const forced = Tutorial.nextRequiredBlocks();
       if (forced !== null) {
         this.requiredBlocks = forced;
+        this.turnColor = this.pickTurnColor();
         this.updateHUD();
         return;
       }
@@ -661,6 +726,7 @@ const Game = {
     this.requiredBlocks = this.queue.shift();
     this.queue.push(this.generateRequiredBlocks());
 
+    this.turnColor = this.pickTurnColor();
     this.updateHUD();
   },
 
@@ -884,6 +950,7 @@ const Game = {
   addCell(x, y) {
     this.cells[y][x] = 1;
     this.path.push({ x, y });
+    this.cellColors[`${x},${y}`] = this.turnColor ? this.turnColor.name : this.COLOR_BANK[0].name;
 
     this.cellAnims[`${x},${y}`] = {
       start: this.gameNow,
@@ -903,6 +970,7 @@ const Game = {
 
     removed.forEach(cell => {
       this.cells[cell.y][cell.x] = 0;
+      delete this.cellColors[`${cell.x},${cell.y}`];
     });
 
     GameAudio.playBack();
@@ -918,6 +986,7 @@ const Game = {
 
     this.path.forEach(cell => {
       this.cells[cell.y][cell.x] = 0;
+      delete this.cellColors[`${cell.x},${cell.y}`];
     });
 
     this.path = [];
@@ -1078,6 +1147,9 @@ const Game = {
     this.praiseUntil = this.gameNow + 1200 + level * 250;
 
     GameAudio.playPraise(level);
+    if (typeof GameAudio.playVoice === "function") {
+      GameAudio.playVoice(level);
+    }
     Haptics.vibrate(30 + level * 15);
 
     // Gerbe de particules proportionnelle au niveau, éparpillée sur la
@@ -1223,10 +1295,11 @@ const Game = {
 
     if (count === 0) return { count: 0 };
 
+    const toColor = this.turnColor || this.COLOR_BANK[0];
     const clearedKeys = new Set();
 
     for (const y of fullRows) {
-      this.lineFlashes.push({ type: "row", index: y, start: this.gameNow, power: count });
+      this.lineFlashes.push({ type: "row", index: y, start: this.gameNow, power: count, color: toColor.base });
 
       for (let x = 0; x < this.SIZE; x++) {
         clearedKeys.add(`${x},${y}`);
@@ -1234,7 +1307,7 @@ const Game = {
     }
 
     for (const x of fullCols) {
-      this.lineFlashes.push({ type: "col", index: x, start: this.gameNow, power: count });
+      this.lineFlashes.push({ type: "col", index: x, start: this.gameNow, power: count, color: toColor.base });
 
       for (let y = 0; y < this.SIZE; y++) {
         clearedKeys.add(`${x},${y}`);
@@ -1243,11 +1316,11 @@ const Game = {
 
     if (count >= 2) {
       for (const y of fullRows) {
-        this.lineBeams.push({ type: "row", index: y, start: this.gameNow, power: count });
+        this.lineBeams.push({ type: "row", index: y, start: this.gameNow, power: count, color: toColor.base });
       }
 
       for (const x of fullCols) {
-        this.lineBeams.push({ type: "col", index: x, start: this.gameNow, power: count });
+        this.lineBeams.push({ type: "col", index: x, start: this.gameNow, power: count, color: toColor.base });
       }
     }
 
@@ -1257,12 +1330,14 @@ const Game = {
     for (const key of clearedKeys) {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
-      const color = value === 3 ? Theme.current.dark : "#ffffff";
+      const fromName = value === 3 ? "stone" : (this.cellColors[key] || toColor.name);
+      const fromColor = this.getBankColor(fromName);
 
       this.cellFlashes.push({
         x,
         y,
         power,
+        color: toColor.base,
         start: this.gameNow + (i % 8) * 22
       });
 
@@ -1271,11 +1346,15 @@ const Game = {
         y,
         value,
         power,
+        fromColor: fromColor.base,
+        toColor: toColor.base,
         start: this.gameNow + (i % 8) * 22
       });
 
-      this.spawnDebris(x, y, color, 3 + power);
-      this.spawnParticles(x, y, 8 + power * 2, null);
+      this.spawnDebris(x, y, toColor.base, 3 + power);
+      this.spawnParticles(x, y, 8 + power * 2, toColor.light);
+
+      delete this.cellColors[key];
 
       i++;
     }
@@ -1295,7 +1374,8 @@ const Game = {
     this.spawnShockwave(
       this.canvas.width / 2,
       this.canvas.height / 2,
-      this.canvas.width * (count > 1 ? 0.4 : 0.25)
+      this.canvas.width * (count > 1 ? 0.4 : 0.25),
+      toColor.base
     );
 
     if (count > 1) {
@@ -1408,7 +1488,9 @@ const Game = {
       this.countdown -= 1;
 
       if (this.countdown <= 0) {
-        this.startNewGameSequence();
+        this.countdown = 0;
+        countdownEl.textContent = "0";
+        this.stopCountdown();
         return;
       }
 
@@ -1554,6 +1636,10 @@ const Game = {
 
     countEl.textContent = remaining;
 
+    if (this.turnColor) {
+      pillEl.style.backgroundColor = this.turnColor.base;
+    }
+
     if (String(remaining) !== previous) {
       pillEl.classList.remove("bump");
       void pillEl.offsetWidth;
@@ -1613,12 +1699,13 @@ const Game = {
     }
   },
 
-  spawnShockwave(x, y, maxRadius) {
+  spawnShockwave(x, y, maxRadius, color) {
     this.shockwaves.push({
       x,
       y,
       start: this.gameNow,
-      maxRadius
+      maxRadius,
+      color: color || "#ffffff"
     });
   },
 
@@ -1738,9 +1825,9 @@ const Game = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const pad = cellSize * 0.035;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
@@ -1899,9 +1986,9 @@ const Game = {
         const ctx = this.ctx;
         const px = x * cellSize + shake;
         const py = y * cellSize;
-        const pad = cellSize * 0.035;
+        const pad = cellSize * 0.06;
         const box = cellSize - pad * 2;
-        const r = cellSize * 0.2;
+        const r = cellSize * 0.22;
         const center = cellSize / 2;
 
         if (glow > 0) {
@@ -1960,16 +2047,99 @@ const Game = {
     }
   },
 
+  getCellColorSet(x, y, value) {
+    if (value === 3) {
+      return {
+        fillStyle: this.colorGradients.stone || this.STONE_COLOR.base,
+        dark: this.STONE_COLOR.dark
+      };
+    }
+
+    const name = this.cellColors[`${x},${y}`];
+    const entry = this.getBankColor(name);
+
+    return {
+      fillStyle: this.colorGradients[entry.name] || entry.base,
+      dark: entry.dark
+    };
+  },
+
+  getStoneSeed(x, y) {
+    const key = `${x},${y}`;
+
+    if (this.stoneSeeds[key] === undefined) {
+      this.stoneSeeds[key] = Math.random() * 1000;
+    }
+
+    return this.stoneSeeds[key];
+  },
+
+  getStoneJitter(x, y, now) {
+    const seed = this.getStoneSeed(x, y);
+    const cellSize = this.getCellSize();
+
+    const jx = Math.sin(now / 210 + seed) * cellSize * 0.012
+      + Math.sin(now / 97 + seed * 2.3) * cellSize * 0.007;
+    const jy = Math.cos(now / 180 + seed * 1.7) * cellSize * 0.012
+      + Math.cos(now / 133 + seed * 3.1) * cellSize * 0.006;
+
+    return { x: jx, y: jy };
+  },
+
+  drawStoneTexture(ctx, x, y, pad, box) {
+    const seed = this.getStoneSeed(x, y);
+
+    const rand = n => {
+      const v = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453;
+      return v - Math.floor(v);
+    };
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+
+    for (let i = 0; i < 4; i++) {
+      const sx = pad + box * (0.15 + rand(i) * 0.7);
+      const sy = pad + box * (0.15 + rand(i + 10) * 0.7);
+      const size = box * (0.025 + rand(i + 20) * 0.03);
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.16)";
+    ctx.lineWidth = Math.max(1, box * 0.018);
+
+    const cx1 = pad + box * (0.22 + rand(30) * 0.2);
+    const cy1 = pad + box * (0.2 + rand(31) * 0.2);
+
+    ctx.beginPath();
+    ctx.moveTo(cx1, cy1);
+    ctx.lineTo(cx1 + box * (0.15 + rand(32) * 0.15), cy1 + box * (0.26 + rand(33) * 0.18));
+    ctx.stroke();
+  },
+
   drawCellAt(x, y, value, scale, alpha, shakeX = 0) {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    const px = x * cellSize + shakeX;
-    const py = y * cellSize;
-    const pad = cellSize * 0.035;
+    let jitterX = 0;
+    let jitterY = 0;
+
+    if (value === 3) {
+      const jitter = this.getStoneJitter(x, y, this.gameNow);
+      jitterX = jitter.x;
+      jitterY = jitter.y;
+    }
+
+    const px = x * cellSize + shakeX + jitterX;
+    const py = y * cellSize + jitterY;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
     const center = cellSize / 2;
+    const ledge = cellSize * 0.075;
+
+    const colorSet = this.getCellColorSet(x, y, value);
 
     ctx.save();
 
@@ -1979,30 +2149,48 @@ const Game = {
     ctx.scale(scale, scale);
     ctx.translate(-center, -center);
 
+    // Ledge : profondeur 3D façon bouton candy, décalée sous le bloc
+    this.roundRectPath(pad, pad + ledge, box, box, r);
+    ctx.fillStyle = colorSet.dark;
+    ctx.fill();
+
+    // Face principale
     this.roundRectPath(pad, pad, box, box, r);
-    ctx.fillStyle = this.frameGradients[value] || "#ffffff";
+    ctx.fillStyle = colorSet.fillStyle;
     ctx.fill();
 
     ctx.save();
     ctx.clip();
 
-    // Ombre basse fondue (au lieu d'une bande à bord dur)
-    const shade = ctx.createLinearGradient(0, box * 0.6, 0, box);
+    // Ombre basse fondue
+    const shade = ctx.createLinearGradient(0, box * 0.62, 0, box);
     shade.addColorStop(0, "rgba(0, 0, 0, 0)");
-    shade.addColorStop(1, "rgba(0, 0, 0, 0.14)");
+    shade.addColorStop(1, "rgba(0, 0, 0, 0.16)");
     ctx.fillStyle = shade;
     ctx.fillRect(pad, pad, box, box);
 
-    // Brillance façon gel candy, en dégradé radial plutôt qu'une bande plate
-    if (this.glossGradient) {
-      ctx.fillStyle = this.glossGradient;
-      ctx.fillRect(pad, pad, box, box);
+    // Reflet façon "gel candy" en forme de croissant (deux disques en soustraction)
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.beginPath();
+    ctx.arc(pad + box * 0.32, pad + box * 0.3, box * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(pad + box * 0.41, pad + box * 0.27, box * 0.19, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+
+    if (value === 3) {
+      this.drawStoneTexture(ctx, x, y, pad, box);
     }
 
     ctx.restore();
 
-    ctx.lineWidth = Math.max(1, cellSize * 0.02);
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
+    // Liseré net et sombre façon logo
+    ctx.lineWidth = Math.max(1.5, cellSize * 0.045);
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.55)";
     this.roundRectPath(pad, pad, box, box, r);
     ctx.stroke();
 
@@ -2012,25 +2200,34 @@ const Game = {
   drawDestroyAnims(now) {
     const ctx = this.ctx;
     const cellSize = this.getCellSize();
+    const DURATION = 380;
+    const RECOLOR_END = 0.4;
 
-    this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < 320);
+    this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < DURATION);
 
-    const pad = cellSize * 0.035;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
     const center = cellSize / 2;
 
     for (const a of this.destroyAnims) {
-      const t = (now - a.start) / 320;
+      const t = (now - a.start) / DURATION;
       const power = Math.min(5, a.power || 1);
       const boost = 1 + power * 0.09;
 
-      const grow = t < 0.3
-        ? 1 + 0.3 * boost * (t / 0.3)
-        : 1.3 * boost * (1 - (t - 0.3) / 0.7);
+      const colorT = Math.min(1, t / RECOLOR_END);
+      const fillColor = a.fromColor && a.toColor
+        ? this.lerpColor(a.fromColor, a.toColor, colorT)
+        : (this.frameGradients[a.value] || "#ffffff");
 
-      const alpha = 1 - t;
-      const rot = (t * (0.5 + power * 0.12)) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
+      const popT = Math.max(0, (t - RECOLOR_END) / (1 - RECOLOR_END));
+
+      const grow = t < RECOLOR_END
+        ? 1 + 0.06 * Math.sin(colorT * Math.PI)
+        : 1.3 * boost * (1 - popT);
+
+      const alpha = t < RECOLOR_END ? 1 : 1 - popT;
+      const rot = (popT * (0.5 + power * 0.12)) * (((a.x + a.y) % 2 === 0) ? 1 : -1);
 
       const px = a.x * cellSize;
       const py = a.y * cellSize;
@@ -2043,13 +2240,20 @@ const Game = {
       ctx.scale(Math.max(0.01, grow), Math.max(0.01, grow));
       ctx.translate(-center, -center);
 
-      ctx.fillStyle = this.frameGradients[a.value] || "#ffffff";
       this.roundRectPath(pad, pad, box, box, r);
+      ctx.fillStyle = fillColor;
       ctx.fill();
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
       this.roundRectPath(pad + box * 0.1, pad + box * 0.08, box * 0.8, box * 0.2, r * 0.7);
       ctx.fill();
+
+      if (colorT < 1) {
+        ctx.globalAlpha = Math.max(0, alpha) * (1 - colorT) * 0.55;
+        ctx.fillStyle = "#ffffff";
+        this.roundRectPath(pad, pad, box, box, r);
+        ctx.fill();
+      }
 
       ctx.restore();
     }
@@ -2061,9 +2265,9 @@ const Game = {
 
     this.cellFlashes = this.cellFlashes.filter(item => now >= item.start && now - item.start < 380);
 
-    const pad = cellSize * 0.035;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
     const center = cellSize / 2;
 
     for (const flash of this.cellFlashes) {
@@ -2081,7 +2285,7 @@ const Game = {
       ctx.translate(px + center, py + center);
       ctx.scale(1.25 + 0.15 * t, 1.25 + 0.15 * t);
       ctx.translate(-center, -center);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = flash.color || "#ffffff";
       this.roundRectPath(pad, pad, box, box, r);
       ctx.fill();
 
@@ -2221,10 +2425,11 @@ const Game = {
       const age = (now - flash.start) / 380;
       const flare = Math.max(0, 1 - age * 3.2);
       const alpha = (0.22 + power * 0.05) * (1 - age) + flare * 0.4;
+      const rgb = this.hexToRgb(flash.color || "#ffffff");
 
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 
       if (flash.type === "row") {
         ctx.fillRect(0, flash.index * cellSize, this.canvas.width, cellSize);
@@ -2250,6 +2455,8 @@ const Game = {
       const trail = cellSize * (1 + power * 0.6);
       const thickness = cellSize * (0.22 + power * 0.08);
       const alpha = Math.min(0.85, 0.3 + power * 0.12) * (1 - age * 0.6);
+      const rgb = this.hexToRgb(beam.color || "#ffffff");
+      const rgbStr = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
 
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
@@ -2259,14 +2466,14 @@ const Game = {
         const head = -trail + (this.canvas.width + trail * 2) * progress;
 
         const gradient = ctx.createLinearGradient(head - trail, 0, head, 0);
-        gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
-        gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
+        gradient.addColorStop(0, `rgba(${rgbStr}, 0)`);
+        gradient.addColorStop(1, `rgba(${rgbStr}, ${alpha})`);
 
         ctx.fillStyle = gradient;
         ctx.fillRect(head - trail, y - thickness / 2, trail, thickness);
 
         if (power >= 3) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+          ctx.fillStyle = `rgba(${rgbStr}, ${alpha * 0.4})`;
           ctx.fillRect(head - trail, y - thickness, trail, thickness * 2);
         }
       } else {
@@ -2274,14 +2481,14 @@ const Game = {
         const head = -trail + (this.canvas.height + trail * 2) * progress;
 
         const gradient = ctx.createLinearGradient(0, head - trail, 0, head);
-        gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
-        gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
+        gradient.addColorStop(0, `rgba(${rgbStr}, 0)`);
+        gradient.addColorStop(1, `rgba(${rgbStr}, ${alpha})`);
 
         ctx.fillStyle = gradient;
         ctx.fillRect(x - thickness / 2, head - trail, thickness, trail);
 
         if (power >= 3) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+          ctx.fillStyle = `rgba(${rgbStr}, ${alpha * 0.4})`;
           ctx.fillRect(x - thickness, head - trail, thickness * 2, trail);
         }
       }
@@ -2299,10 +2506,11 @@ const Game = {
       const age = (now - wave.start) / 460;
       const radius = wave.maxRadius * age;
       const alpha = 0.32 * (1 - age);
+      const rgb = this.hexToRgb(wave.color || "#ffffff");
 
       ctx.save();
 
-      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
       ctx.lineWidth = Math.max(1, this.getCellSize() * 0.05 * (1 - age));
 
       ctx.beginPath();
@@ -2319,9 +2527,9 @@ const Game = {
 
     this.cancelAnims = this.cancelAnims.filter(item => now - item.start < 260);
 
-    const pad = cellSize * 0.035;
+    const pad = cellSize * 0.06;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.2;
+    const r = cellSize * 0.22;
     const center = cellSize / 2;
 
     for (const anim of this.cancelAnims) {
