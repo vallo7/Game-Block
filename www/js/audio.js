@@ -403,6 +403,56 @@ const GameAudio = {
     this.playTone(220, { duration: 0.22, type: "sawtooth", gain: 0.17, slideTo: 70 });
   },
 
+  // Voix (moteur de synthèse vocale du système) pour les mots d'encouragement.
+  // Utilise la voix installée sur l'appareil : la qualité dépend donc du
+  // téléphone, ce n'est pas une voix professionnelle enregistrée.
+  playVoice(level) {
+    if (!this.soundEnabled) return;
+    if (document.hidden) return;
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance !== "function") return;
+
+    const words = ["Nice!", "Great!", "Awesome!", "Amazing!", "Unreal!"];
+    const text = words[Math.min(Math.max(level, 1), words.length) - 1];
+
+    try {
+      window.speechSynthesis.cancel();
+
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.05 + level * 0.05;
+      utter.pitch = 1.15 + level * 0.13;
+      utter.volume = 1;
+
+      const voices = window.speechSynthesis.getVoices();
+
+      if (voices && voices.length) {
+        const preferred = voices.find(v => /female|samantha|zira|victoria|karen|jenny/i.test(v.name))
+          || voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en"))
+          || voices[0];
+
+        if (preferred) utter.voice = preferred;
+      }
+
+      window.speechSynthesis.speak(utter);
+    } catch (error) {
+      // Synthèse vocale indisponible sur cet appareil : on ignore simplement.
+    }
+  },
+
+  playTutorialDone() {
+    const base = 523;
+
+    for (let i = 0; i < 4; i++) {
+      this.playTone(this.noteFreq(base, i), {
+        duration: 0.13,
+        type: "triangle",
+        gain: 0.34,
+        delay: i * 0.075
+      });
+    }
+
+    this.playTone(base * 2, { duration: 0.3, type: "sine", gain: 0.32, delay: 0.34 });
+  },
+
   playDefeatLong(durationMs = 3200) {
     if (!this.soundEnabled) return;
     if (document.hidden) return;
