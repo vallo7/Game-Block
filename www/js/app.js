@@ -169,6 +169,9 @@ const settingsOverlay = document.getElementById("settingsOverlay");
 const settingsCloseBtn = document.getElementById("settingsCloseBtn");
 const settingsHomeBtn = document.getElementById("settingsHomeBtn");
 const settingsRestartBtn = document.getElementById("settingsRestartBtn");
+const homeSettingsBtn = document.getElementById("homeSettingsBtn");
+const homeSettingsOverlay = document.getElementById("homeSettingsOverlay");
+const homeSettingsCloseBtn = document.getElementById("homeSettingsCloseBtn");
 const bestScore = document.querySelector(".best-score");
 const availablePill = document.getElementById("availablePill");
 const adsBlockBtn = document.getElementById("adsBlockBtn");
@@ -223,6 +226,23 @@ if (event.target === settingsOverlay) {
 this.closeSettings();
 }
 });
+if (homeSettingsBtn && homeSettingsOverlay && homeSettingsCloseBtn) {
+homeSettingsBtn.addEventListener("click", () => {
+GameAudio.unlock();
+GameAudio.playClick();
+homeSettingsOverlay.classList.remove("hidden");
+});
+homeSettingsCloseBtn.addEventListener("click", () => {
+GameAudio.playClick();
+homeSettingsOverlay.classList.add("hidden");
+});
+homeSettingsOverlay.addEventListener("click", (event) => {
+if (event.target === homeSettingsOverlay) {
+GameAudio.playClick();
+homeSettingsOverlay.classList.add("hidden");
+}
+});
+}
 document.querySelectorAll("[data-setting]").forEach(button => {
 button.addEventListener("click", () => {
 GameAudio.unlock();
