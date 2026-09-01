@@ -525,6 +525,7 @@ padding: 0 18px;
 background-color: var(--cream);
 color: var(--ink);
 cursor: pointer;
+margin-right: 6px;
 box-shadow: var(--candy-inset), var(--shadow), var(--chunk), 0 0 0 3px #0a0c4d;
 }
 .best-icon { width: 20px; height: 20px; display: grid; place-items: center; color: var(--gold); }
@@ -557,7 +558,7 @@ position: relative;
 width: 100%;
 aspect-ratio: 1;
 border-radius: 26px;
-padding: 6px;
+padding: 3px;
 background: rgba(0, 0, 0, 0.16);
 box-shadow: var(--shadow);
 }
@@ -673,6 +674,17 @@ margin-bottom: 16px;
 .sq-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .sq-word { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: 0.4px; }
 .settings-restart { display: flex; justify-content: center; }
+.settings-about {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 4px;
+padding: 14px 10px 4px;
+border-top: 1px solid rgba(23, 35, 63, 0.1);
+}
+.settings-about-logo { width: 84px; height: auto; }
+.settings-about-text { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 0.3px; margin: 0; }
+.settings-about-version { color: rgba(23, 35, 63, 0.45); font-size: 11px; font-weight: 700; margin: 0; }
 .restart-game-btn {
 width: 80%;
 display: flex;
@@ -976,4 +988,4 @@ tutorialOutroPulse 1.15s 760ms infinite ease-in-out;
 :root { --board-size: min(96vw, 480px, calc(100svh - 215px)); }
 .current-score { font-size: 44px; }
 .feedback-zone { height: 70px; }
-  }
+     }
