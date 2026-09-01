@@ -354,15 +354,15 @@ const Game = {
   // Banque de couleurs vives pour les blocs (inclut les teintes B/L/C/K/O du
   // logo Game Block) + la teinte "pierre" des obstacles.
   COLOR_BANK: [
-    { name: "blue", base: "#04b5e7", light: "#87e3fd", dark: "#02475b" },
-    { name: "yellow", base: "#fcc400", light: "#ffe896", dark: "#6d5500" },
-    { name: "green", base: "#6ec705", light: "#b8fb6a", dark: "#213c02" },
-    { name: "purple", base: "#c83bfc", light: "#f2d2fe", dark: "#7a03a6" },
-    { name: "pink", base: "#fc3f8a", light: "#fed6e6", dark: "#aa0345" },
-    { name: "red", base: "#ff3b3b", light: "#ffd4d4", dark: "#ab0000" }
+    { name: "blue", base: "#0477fc", light: "#23a8fd", dark: "#0045f1" },
+    { name: "yellow", base: "#fde402", light: "#fcf828", dark: "#fdb701" },
+    { name: "green", base: "#46f30d", light: "#6bf90d", dark: "#14c304" },
+    { name: "purple", base: "#9a0bf9", light: "#b847f9", dark: "#6505cb" },
+    { name: "pink", base: "#f91487", light: "#fb59c5", dark: "#d00245" }
   ],
 
-  STONE_COLOR: { name: "stone", base: "#9aa3ad", light: "#d7dce1", dark: "#4d545c" },
+  STONE_COLOR: { name: "stone", base: "#777c8a", light: "#a1a5b4", dark: "#454852" },
+  ICE_COLOR: { name: "ice", base: "#058afd", light: "#75f1fa", dark: "#0071fc" },
 
   pickTurnColor() {
     const bank = this.COLOR_BANK;
@@ -425,8 +425,8 @@ const Game = {
       this.frameGradients[2] = g;
 
       g = ctx.createLinearGradient(0, 0, 0, cellSize);
-      g.addColorStop(0, "#ffffff");
-      g.addColorStop(1, "#9fd8ff");
+      g.addColorStop(0, this.ICE_COLOR.light);
+      g.addColorStop(1, this.ICE_COLOR.base);
       this.frameGradients.ice = g;
 
       const gloss = ctx.createRadialGradient(
@@ -438,13 +438,10 @@ const Game = {
       gloss.addColorStop(1, "rgba(255,255,255,0)");
       this.glossGradient = gloss;
 
-      this.colorGradients = {};
-      [...this.COLOR_BANK, this.STONE_COLOR].forEach(entry => {
-        const cg = ctx.createLinearGradient(0, 0, 0, cellSize);
-        cg.addColorStop(0, entry.light);
-        cg.addColorStop(1, entry.base);
-        this.colorGradients[entry.name] = cg;
-      });
+      const bottomShade = ctx.createLinearGradient(0, cellSize * 0.7, 0, cellSize);
+      bottomShade.addColorStop(0, "rgba(0, 0, 0, 0)");
+      bottomShade.addColorStop(1, "rgba(0, 0, 0, 0.28)");
+      this.bottomShadeGradient = bottomShade;
     }
 
     if (sizeChanged || themeChanged) {
@@ -1423,17 +1420,21 @@ const Game = {
     this.lockUI();
     this.clearDefeatTimeouts();
 
+    // Retour immédiat : le joueur sait tout de suite que c'est terminé,
+    // pas d'attente silencieuse avant la séquence de gel.
+    Haptics.vibrate(25);
+
     this.freezeTimeout = setTimeout(() => {
       this.freezeTimeout = null;
 
       this.startFreeze();
-      GameAudio.playDefeatLong(3200);
+      GameAudio.playDefeatLong(1600);
 
       this.popupTimeout = setTimeout(() => {
         this.popupTimeout = null;
         this.startGameOver();
-      }, 3400);
-    }, 2000);
+      }, 1700);
+    }, 400);
   },
 
   startFreeze() {
@@ -1447,18 +1448,18 @@ const Game = {
       const x = cellIndex % this.SIZE;
       const y = Math.floor(cellIndex / this.SIZE);
 
-      this.freezeDelays[`${x},${y}`] = position * (2800 / (this.SIZE * this.SIZE));
+      this.freezeDelays[`${x},${y}`] = position * (1300 / (this.SIZE * this.SIZE));
     });
 
     this.freezeFx = {
       start: this.gameNow,
-      duration: 3000
+      duration: 1500
     };
 
     for (let i = 0; i < 8; i++) {
       setTimeout(() => {
         GameAudio.playFreezeTick(i);
-      }, i * 360);
+      }, i * 170);
     }
   },
 
@@ -1825,9 +1826,9 @@ const Game = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const pad = cellSize * 0.06;
+    const pad = cellSize * 0.04;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.22;
+    const r = cellSize * 0.26;
 
     for (let y = 0; y < this.SIZE; y++) {
       for (let x = 0; x < this.SIZE; x++) {
@@ -1986,9 +1987,9 @@ const Game = {
         const ctx = this.ctx;
         const px = x * cellSize + shake;
         const py = y * cellSize;
-        const pad = cellSize * 0.06;
+        const pad = cellSize * 0.04;
         const box = cellSize - pad * 2;
-        const r = cellSize * 0.22;
+        const r = cellSize * 0.26;
         const center = cellSize / 2;
 
         if (glow > 0) {
@@ -2048,20 +2049,10 @@ const Game = {
   },
 
   getCellColorSet(x, y, value) {
-    if (value === 3) {
-      return {
-        fillStyle: this.colorGradients.stone || this.STONE_COLOR.base,
-        dark: this.STONE_COLOR.dark
-      };
-    }
+    if (value === 3) return this.STONE_COLOR;
 
     const name = this.cellColors[`${x},${y}`];
-    const entry = this.getBankColor(name);
-
-    return {
-      fillStyle: this.colorGradients[entry.name] || entry.base,
-      dark: entry.dark
-    };
+    return this.getBankColor(name);
   },
 
   getStoneSeed(x, y) {
@@ -2078,10 +2069,18 @@ const Game = {
     const seed = this.getStoneSeed(x, y);
     const cellSize = this.getCellSize();
 
-    const jx = Math.sin(now / 210 + seed) * cellSize * 0.012
-      + Math.sin(now / 97 + seed * 2.3) * cellSize * 0.007;
-    const jy = Math.cos(now / 180 + seed * 1.7) * cellSize * 0.012
-      + Math.cos(now / 133 + seed * 3.1) * cellSize * 0.006;
+    // Tremblement irrégulier : courte secousse rapide, puis pause aléatoire
+    // (durée de cycle et déphasage propres à chaque bloc).
+    const cycleLength = 1400 + (seed % 1700);
+    const burstLength = 220;
+    const t = (now + seed * 137) % cycleLength;
+
+    if (t > burstLength) return { x: 0, y: 0 };
+
+    const intensity = 1 - t / burstLength;
+
+    const jx = Math.sin(t / 26 + seed * 3.1) * cellSize * 0.022 * intensity;
+    const jy = Math.cos(t / 21 + seed * 4.7) * cellSize * 0.02 * intensity;
 
     return { x: jx, y: jy };
   },
@@ -2133,11 +2132,12 @@ const Game = {
 
     const px = x * cellSize + shakeX + jitterX;
     const py = y * cellSize + jitterY;
-    const pad = cellSize * 0.06;
+    const pad = cellSize * 0.04;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.22;
+    const r = cellSize * 0.26;
     const center = cellSize / 2;
-    const ledge = cellSize * 0.075;
+    const border = box * 0.06;
+    const innerR = Math.max(2, r - border);
 
     const colorSet = this.getCellColorSet(x, y, value);
 
@@ -2149,36 +2149,35 @@ const Game = {
     ctx.scale(scale, scale);
     ctx.translate(-center, -center);
 
-    // Ledge : profondeur 3D façon bouton candy, décalée sous le bloc
-    this.roundRectPath(pad, pad + ledge, box, box, r);
-    ctx.fillStyle = colorSet.dark;
+    // Anneau extérieur clair, uniforme sur tout le pourtour
+    this.roundRectPath(pad, pad, box, box, r);
+    ctx.fillStyle = colorSet.light;
     ctx.fill();
 
-    // Face principale
-    this.roundRectPath(pad, pad, box, box, r);
-    ctx.fillStyle = colorSet.fillStyle;
+    // Corps principal, légèrement en retrait (plat, façon icône de référence)
+    this.roundRectPath(pad + border, pad + border, box - border * 2, box - border * 2, innerR);
+    ctx.fillStyle = colorSet.base;
     ctx.fill();
 
     ctx.save();
     ctx.clip();
 
-    // Ombre basse fondue
-    const shade = ctx.createLinearGradient(0, box * 0.62, 0, box);
-    shade.addColorStop(0, "rgba(0, 0, 0, 0)");
-    shade.addColorStop(1, "rgba(0, 0, 0, 0.16)");
-    ctx.fillStyle = shade;
-    ctx.fillRect(pad, pad, box, box);
+    // Ombre basse fine (juste l'arête basse, pas une grosse bande)
+    if (this.bottomShadeGradient) {
+      ctx.fillStyle = this.bottomShadeGradient;
+      ctx.fillRect(pad, pad, box, box);
+    }
 
     // Reflet façon "gel candy" en forme de croissant (deux disques en soustraction)
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
     ctx.beginPath();
-    ctx.arc(pad + box * 0.32, pad + box * 0.3, box * 0.22, 0, Math.PI * 2);
+    ctx.arc(pad + box * 0.32, pad + box * 0.3, box * 0.2, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
-    ctx.arc(pad + box * 0.41, pad + box * 0.27, box * 0.19, 0, Math.PI * 2);
+    ctx.arc(pad + box * 0.41, pad + box * 0.27, box * 0.17, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalCompositeOperation = "source-over";
 
@@ -2187,13 +2186,6 @@ const Game = {
     }
 
     ctx.restore();
-
-    // Liseré net et sombre façon logo
-    ctx.lineWidth = Math.max(1.5, cellSize * 0.045);
-    ctx.strokeStyle = "rgba(15, 23, 42, 0.55)";
-    this.roundRectPath(pad, pad, box, box, r);
-    ctx.stroke();
-
     ctx.restore();
   },
 
@@ -2205,9 +2197,9 @@ const Game = {
 
     this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < DURATION);
 
-    const pad = cellSize * 0.06;
+    const pad = cellSize * 0.04;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.22;
+    const r = cellSize * 0.26;
     const center = cellSize / 2;
 
     for (const a of this.destroyAnims) {
@@ -2265,9 +2257,9 @@ const Game = {
 
     this.cellFlashes = this.cellFlashes.filter(item => now >= item.start && now - item.start < 380);
 
-    const pad = cellSize * 0.06;
+    const pad = cellSize * 0.04;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.22;
+    const r = cellSize * 0.26;
     const center = cellSize / 2;
 
     for (const flash of this.cellFlashes) {
@@ -2527,9 +2519,9 @@ const Game = {
 
     this.cancelAnims = this.cancelAnims.filter(item => now - item.start < 260);
 
-    const pad = cellSize * 0.06;
+    const pad = cellSize * 0.04;
     const box = cellSize - pad * 2;
-    const r = cellSize * 0.22;
+    const r = cellSize * 0.26;
     const center = cellSize / 2;
 
     for (const anim of this.cancelAnims) {
