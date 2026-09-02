@@ -8,6 +8,10 @@ const Menu = {
       GameAudio.playClick();
       Haptics.vibrate(15);
 
+      if (!Tutorial.active) {
+        Ads.maybeShowInterstitial(1 / 5);
+      }
+
       setTimeout(() => {
         App.showGame();
       }, 220);
