@@ -7,6 +7,7 @@ Settings.load();
 Game.init();
 Menu.init();
 Tutorial.init();
+Ads.init();
 this.bindUI();
 this.bindBackButton();
 this.bindButtonPop();
@@ -198,6 +199,7 @@ Haptics.vibrate(20);
 Settings.data.adsBlocked = !Settings.data.adsBlocked;
 Settings.save();
 this.updateAdsUI();
+if (Settings.data.adsBlocked) Ads.hideBanner();
 });
 }
 settingsBtn.addEventListener("click", () => {
@@ -222,7 +224,8 @@ settingsRestartBtn.addEventListener("click", () => {
 GameAudio.playClick();
 setTimeout(() => {
 this.closeSettings();
-Game.reset();
+Ads.maybeShowInterstitial(1 / 2);
+Game.startNewGameSequence();
 }, 200);
 });
 settingsOverlay.addEventListener("click", (event) => {
@@ -289,6 +292,7 @@ showMenu() {
 document.getElementById("menuScreen").classList.add("active");
 document.getElementById("gameScreen").classList.remove("active");
 Game.stop();
+Ads.hideBanner();
 },
 showGame() {
 if (!Game.runActive) {
@@ -297,6 +301,7 @@ Theme.useMenuColor();
 document.getElementById("menuScreen").classList.remove("active");
 document.getElementById("gameScreen").classList.add("active");
 Game.start();
+Ads.showBanner();
 },
 openSettings() {
 document.getElementById("settingsOverlay").classList.remove("hidden");
