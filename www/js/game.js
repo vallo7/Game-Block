@@ -292,15 +292,17 @@ const Game = {
     // Bouton CONTINUER (pub) : plus gros / mis en avant dans le pop-up
     this.on("adsBtn", () => {
       GameAudio.playClick();
-      setTimeout(() => {
-        this.stopCountdown();
+      this.stopCountdown();
+
+      Ads.showRewarded(() => {
         this.revive();
-      }, 250);
+      });
     });
 
-    // Bouton RESTART : séquence de redémarrage animée
+    // Bouton RESTART : séquence de redémarrage animée (+ pub 1 fois sur 3)
     this.on("restartBtn", () => {
       GameAudio.playClick();
+      Ads.maybeShowInterstitial(1 / 3);
       this.startNewGameSequence();
     });
 
@@ -1468,7 +1470,10 @@ const Game = {
     overlay.classList.remove("hidden");
 
     ring.classList.remove("drain");
+    ring.style.transition = "none";
+    ring.style.strokeDashoffset = "0";
     void ring.offsetWidth;
+    ring.style.transition = "";
     ring.classList.add("drain");
 
     this.countdown = 10;
@@ -1483,6 +1488,13 @@ const Game = {
         this.countdown = 0;
         countdownEl.textContent = "0";
         this.stopCountdown();
+
+        setTimeout(() => {
+          if (!this.gameOver) return;
+          Ads.maybeShowInterstitial(1 / 3);
+          this.startNewGameSequence();
+        }, 450);
+
         return;
       }
 
