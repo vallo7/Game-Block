@@ -172,6 +172,10 @@ const settingsRestartBtn = document.getElementById("settingsRestartBtn");
 const homeSettingsBtn = document.getElementById("homeSettingsBtn");
 const homeSettingsOverlay = document.getElementById("homeSettingsOverlay");
 const homeSettingsCloseBtn = document.getElementById("homeSettingsCloseBtn");
+const homeSettingsBackBtn = document.getElementById("homeSettingsBackBtn");
+const aboutUsBtn = document.getElementById("aboutUsBtn");
+const aboutUsOverlay = document.getElementById("aboutUsOverlay");
+const aboutUsBackBtn = document.getElementById("aboutUsBackBtn");
 const bestScore = document.querySelector(".best-score");
 const availablePill = document.getElementById("availablePill");
 const adsBlockBtn = document.getElementById("adsBlockBtn");
@@ -236,10 +240,37 @@ homeSettingsCloseBtn.addEventListener("click", () => {
 GameAudio.playClick();
 homeSettingsOverlay.classList.add("hidden");
 });
+if (homeSettingsBackBtn) {
+homeSettingsBackBtn.addEventListener("click", () => {
+GameAudio.playClick();
+homeSettingsOverlay.classList.add("hidden");
+});
+}
 homeSettingsOverlay.addEventListener("click", (event) => {
 if (event.target === homeSettingsOverlay) {
 GameAudio.playClick();
 homeSettingsOverlay.classList.add("hidden");
+}
+});
+}
+if (aboutUsBtn && aboutUsOverlay && homeSettingsOverlay) {
+aboutUsBtn.addEventListener("click", () => {
+GameAudio.playClick();
+homeSettingsOverlay.classList.add("hidden");
+aboutUsOverlay.classList.remove("hidden");
+});
+if (aboutUsBackBtn) {
+aboutUsBackBtn.addEventListener("click", () => {
+GameAudio.playClick();
+aboutUsOverlay.classList.add("hidden");
+homeSettingsOverlay.classList.remove("hidden");
+});
+}
+aboutUsOverlay.addEventListener("click", (event) => {
+if (event.target === aboutUsOverlay) {
+GameAudio.playClick();
+aboutUsOverlay.classList.add("hidden");
+homeSettingsOverlay.classList.remove("hidden");
 }
 });
 }
