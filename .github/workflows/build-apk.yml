@@ -34,6 +34,11 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Inject AdMob test App ID
+        run: |
+          perl -0pi -e 's{(<application[^>]*>)}{$1\n        <meta-data\n            android:name="com.google.android.gms.ads.APPLICATION_ID"\n            android:value="ca-app-pub-3940256099942544~3347511713" />\n}' android/app/src/main/AndroidManifest.xml
+          cat android/app/src/main/AndroidManifest.xml
+
       - name: Enable immersive mode
         run: |
           MJ=$(find android/app/src/main/java -name MainActivity.java | head -1)
