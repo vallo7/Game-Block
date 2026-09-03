@@ -34,10 +34,20 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
-      - name: Inject AdMob test App ID
+      - name: Configure AdMob App ID
         run: |
-          perl -0pi -e 's{(<application[^>]*>)}{$1\n        <meta-data\n            android:name="com.google.android.gms.ads.APPLICATION_ID"\n            android:value="ca-app-pub-3940256099942544~3347511713" />\n}' android/app/src/main/AndroidManifest.xml
-          cat android/app/src/main/AndroidManifest.xml
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          STRINGS="android/app/src/main/res/values/strings.xml"
+
+          if ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
+            sed -i '/<activity/i\        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="@string/admob_app_id"/>' "$MANIFEST"
+          fi
+
+          if ! grep -q "admob_app_id" "$STRINGS"; then
+            sed -i 's#</resources>#    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>\n</resources>#' "$STRINGS"
+          fi
+
+          echo "AdMob App ID configured (test ID)."
 
       - name: Enable immersive mode
         run: |
