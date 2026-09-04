@@ -2,11 +2,17 @@ const Settings = {
   data: {
     sound: true,
     music: false,
+    musicVolume: 100,
     vibration: true
   },
 
   load() {
     this.data = Storage.getSettings();
+
+    if (typeof this.data.musicVolume !== "number") {
+      this.data.musicVolume = this.data.music ? 100 : 0;
+    }
+
     this.apply();
     this.updateUI();
   },
@@ -18,6 +24,7 @@ const Settings = {
   apply() {
     GameAudio.setSoundEnabled(this.data.sound);
     GameAudio.setMusicEnabled(this.data.music);
+    GameAudio.setMusicVolume(this.data.musicVolume / 100);
     Haptics.setEnabled(this.data.vibration);
   },
 
@@ -33,16 +40,31 @@ const Settings = {
     if (key === "vibration" && this.data.vibration) {
       Haptics.vibrate(300);
     }
+  },
 
-    if (key === "music" && this.data.music) {
+  setMusicVolume(value) {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+
+    this.data.musicVolume = clamped;
+    this.data.music = clamped > 0;
+
+    this.save();
+    this.apply();
+    this.updateUI();
+
+    if (this.data.music) {
       GameAudio.unlock();
     }
   },
 
   updateUI() {
-    document.querySelectorAll("[data-setting]").forEach(button => {
-      const key = button.dataset.setting;
-      button.classList.toggle("on", Boolean(this.data[key]));
+    document.querySelectorAll("input[data-setting]").forEach(input => {
+      const key = input.dataset.setting;
+      input.checked = Boolean(this.data[key]);
+    });
+
+    document.querySelectorAll(".music-volume-slider").forEach(slider => {
+      slider.value = this.data.musicVolume;
     });
   }
 };
