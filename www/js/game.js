@@ -292,6 +292,12 @@ const Game = {
     // Bouton CONTINUER (pub) : plus gros / mis en avant dans le pop-up
     this.on("adsBtn", () => {
       GameAudio.playClick();
+
+      if (!Ads.isOnline()) {
+        Ads.showOfflineMessage();
+        return;
+      }
+
       this.stopCountdown();
 
       Ads.showRewarded(() => {
@@ -1474,6 +1480,7 @@ const Game = {
     ring.style.strokeDashoffset = "0";
     void ring.offsetWidth;
     ring.style.transition = "";
+    ring.style.strokeDashoffset = "";
     ring.classList.add("drain");
 
     this.countdown = 10;
@@ -1828,7 +1835,7 @@ const Game = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const pad = cellSize * 0.02;
+    const pad = cellSize * 0.008;
     const box = cellSize - pad * 2;
     const r = cellSize * 0.26;
 
@@ -1989,7 +1996,7 @@ const Game = {
         const ctx = this.ctx;
         const px = x * cellSize + shake;
         const py = y * cellSize;
-        const pad = cellSize * 0.02;
+        const pad = cellSize * 0.008;
         const box = cellSize - pad * 2;
         const r = cellSize * 0.26;
         const center = cellSize / 2;
@@ -2020,7 +2027,7 @@ const Game = {
           ctx.translate(-center, -center);
 
           if (iceImg && iceImg.complete && iceImg.naturalWidth) {
-            ctx.drawImage(iceImg, pad, pad, box, box);
+            this.drawBlockImage(ctx, iceImg, pad, pad, box, box);
           } else {
             ctx.fillStyle = this.frameGradients.ice;
             this.roundRectPath(pad, pad, box, box, r);
@@ -2076,6 +2083,20 @@ const Game = {
     return { x: jx, y: jy };
   },
 
+  // Marge transparente mesurée sur les images de blocs fournies : on la
+  // recadre pour que le bloc visible remplisse sa case au maximum.
+  BLOCK_CROP: { x: 0.0502, y: 0.0574, w: 0.8955, h: 0.8804 },
+
+  drawBlockImage(ctx, img, dx, dy, dw, dh) {
+    const c = this.BLOCK_CROP;
+    const sx = img.naturalWidth * c.x;
+    const sy = img.naturalHeight * c.y;
+    const sw = img.naturalWidth * c.w;
+    const sh = img.naturalHeight * c.h;
+
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  },
+
   getCellImage(x, y, value) {
     if (value === 3) return this.blockImages.stone;
 
@@ -2100,7 +2121,7 @@ const Game = {
 
     const px = x * cellSize + shakeX + jitterX;
     const py = y * cellSize + jitterY;
-    const pad = cellSize * 0.02;
+    const pad = cellSize * 0.008;
     const box = cellSize - pad * 2;
     const center = cellSize / 2;
 
@@ -2115,7 +2136,7 @@ const Game = {
     ctx.translate(-center, -center);
 
     if (img && img.complete && img.naturalWidth) {
-      ctx.drawImage(img, pad, pad, box, box);
+      this.drawBlockImage(ctx, img, pad, pad, box, box);
     } else {
       // Filet de sécurité tant que l'image charge encore
       const fallback = value === 3 ? this.STONE_COLOR : this.getBankColor(this.cellColors[`${x},${y}`]);
@@ -2137,7 +2158,7 @@ const Game = {
 
     this.destroyAnims = this.destroyAnims.filter(a => now >= a.start && now - a.start < DURATION);
 
-    const pad = cellSize * 0.02;
+    const pad = cellSize * 0.008;
     const box = cellSize - pad * 2;
     const center = cellSize / 2;
 
@@ -2172,13 +2193,13 @@ const Game = {
       const toImg = a.toName ? this.blockImages[a.toName] : null;
 
       if (fromImg && fromImg.complete && colorT < 1) {
-        ctx.drawImage(fromImg, pad, pad, box, box);
+        this.drawBlockImage(ctx, fromImg, pad, pad, box, box);
       }
 
       if (toImg && toImg.complete) {
         const baseAlpha = ctx.globalAlpha;
         ctx.globalAlpha = baseAlpha * colorT;
-        ctx.drawImage(toImg, pad, pad, box, box);
+        this.drawBlockImage(ctx, toImg, pad, pad, box, box);
         ctx.globalAlpha = baseAlpha;
       } else if (!fromImg || !fromImg.complete) {
         this.roundRectPath(pad, pad, box, box, cellSize * 0.22);
@@ -2196,7 +2217,7 @@ const Game = {
 
     this.cellFlashes = this.cellFlashes.filter(item => now >= item.start && now - item.start < 380);
 
-    const pad = cellSize * 0.02;
+    const pad = cellSize * 0.008;
     const box = cellSize - pad * 2;
     const r = cellSize * 0.26;
     const center = cellSize / 2;
@@ -2433,7 +2454,7 @@ const Game = {
 
     this.cancelAnims = this.cancelAnims.filter(item => now - item.start < 260);
 
-    const pad = cellSize * 0.02;
+    const pad = cellSize * 0.008;
     const box = cellSize - pad * 2;
     const r = cellSize * 0.26;
     const center = cellSize / 2;
