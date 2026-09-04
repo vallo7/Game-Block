@@ -23,6 +23,24 @@ const Ads = {
     );
   },
 
+  isOnline() {
+    return typeof navigator === "undefined" || navigator.onLine !== false;
+  },
+
+  showOfflineMessage() {
+    const el = document.createElement("div");
+    el.className = "ad-toast";
+    el.textContent = "No internet connection";
+
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+
+    setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => el.remove(), 300);
+    }, 2200);
+  },
+
   isBlocked() {
     return Boolean(Settings.data && Settings.data.adsBlocked);
   },
@@ -43,7 +61,7 @@ const Ads = {
   // Publicité plein écran (mode cliqué, restart pause, restart/countdown défaite),
   // déclenchée avec une probabilité "chance" (0-1).
   async maybeShowInterstitial(chance) {
-    if (this.isBlocked() || !this.hasPlugin() || !this.ready) return;
+    if (this.isBlocked() || !this.isOnline() || !this.hasPlugin() || !this.ready) return;
     if (Math.random() > chance) return;
 
     try {
@@ -57,9 +75,12 @@ const Ads = {
 
   // Publicité récompensée (bouton "Watch Ad" du panneau défaite). onComplete est
   // toujours appelé, même en cas d'échec, pour ne jamais pénaliser le joueur.
+  // Un micro délai sépare la fin de la pub de l'octroi effectif de la récompense.
   async showRewarded(onComplete) {
+    const grant = () => setTimeout(() => { if (onComplete) onComplete(); }, 350);
+
     if (this.isBlocked() || !this.hasPlugin() || !this.ready) {
-      if (onComplete) onComplete();
+      grant();
       return;
     }
 
@@ -71,7 +92,7 @@ const Ads = {
       // Pub indisponible : on accorde quand même la récompense.
     }
 
-    if (onComplete) onComplete();
+    grant();
   },
 
   async showBanner() {
