@@ -10,6 +10,25 @@ const GameAudio = {
 
   soundEnabled: true,
   musicEnabled: false,
+  musicVolume: 1,
+
+  getMusicPeak(base) {
+    return Math.max(0.0001, base * this.musicVolume);
+  },
+
+  setMusicVolume(value) {
+    this.musicVolume = Math.max(0, Math.min(1, value));
+
+    if (!this.ctx || !this.musicGain) return;
+    if (!this.musicEnabled) return;
+
+    const now = this.ctx.currentTime;
+    const peak = this.musicSource ? 0.75 : 0.6;
+
+    this.musicGain.gain.cancelScheduledValues(now);
+    this.musicGain.gain.setValueAtTime(this.musicGain.gain.value, now);
+    this.musicGain.gain.exponentialRampToValueAtTime(this.getMusicPeak(peak), now + 0.25);
+  },
 
   ensure() {
     if (this.ctx) {
@@ -25,12 +44,70 @@ const GameAudio = {
     this.ctx = new AudioContextClass();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = 1.15;
     this.master.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
     this.musicGain.gain.value = 0.0001;
     this.musicGain.connect(this.master);
+
+    this.loadSamples();
+  },
+
+  // Échantillons audio réels (fournis par l'utilisateur), en plus des sons
+  // synthétisés. Si un fichier n'a pas pu être chargé, le son synthé
+  // correspondant sert de secours automatique.
+  sampleBuffers: {},
+  samplesLoaded: false,
+  sampleUrls: {
+    drop: "audio/drop.mp3",
+    defeat: "audio/defaite.mp3",
+    error: "audio/error.mp3",
+    menu: "audio/menu.mp3",
+    nice: "audio/nice.mp3",
+    great: "audio/great.mp3",
+    awesome: "audio/awesome.mp3",
+    amazing: "audio/amazing.mp3",
+    unreal: "audio/unreal.mp3"
+  },
+
+  async loadSamples() {
+    if (this.samplesLoaded || !this.ctx) return;
+    this.samplesLoaded = true;
+
+    await Promise.all(Object.entries(this.sampleUrls).map(async ([name, url]) => {
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        this.sampleBuffers[name] = await this.ctx.decodeAudioData(arrayBuffer);
+      } catch (error) {
+        // Fichier manquant ou non décodable : le son synthétisé prendra le relais.
+      }
+    }));
+  },
+
+  // Retourne true si l'échantillon a bien été joué, false s'il n'est pas
+  // encore disponible (l'appelant doit alors jouer son son synthé de secours).
+  playSample(name, gain = 1) {
+    if (!this.soundEnabled) return true;
+    if (document.hidden) return true;
+
+    const buffer = this.sampleBuffers[name];
+    if (!buffer || !this.ctx || !this.master) return false;
+
+    this.ensure();
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.value = gain;
+
+    source.connect(gainNode);
+    gainNode.connect(this.master);
+    source.start(0);
+
+    return true;
   },
 
   unlock() {
@@ -121,7 +198,7 @@ const GameAudio = {
 
     this.musicGain.gain.cancelScheduledValues(now);
     this.musicGain.gain.setValueAtTime(0.0001, now);
-    this.musicGain.gain.exponentialRampToValueAtTime(0.45, now + 1.2);
+    this.musicGain.gain.exponentialRampToValueAtTime(this.getMusicPeak(0.75), now + 1.2);
 
     const src = this.ctx.createBufferSource();
     src.buffer = this.musicBuffer;
@@ -142,7 +219,7 @@ const GameAudio = {
 
     this.musicGain.gain.cancelScheduledValues(now);
     this.musicGain.gain.setValueAtTime(0.0001, now);
-    this.musicGain.gain.exponentialRampToValueAtTime(0.35, now + 1.6);
+    this.musicGain.gain.exponentialRampToValueAtTime(this.getMusicPeak(0.6), now + 1.6);
 
     const freqs = [110, 164.81, 220];
 
@@ -297,6 +374,11 @@ const GameAudio = {
     this.playTone(760, { duration: 0.04, type: "sine", gain: 0.22, delay: 0.02 });
   },
 
+  playModeSelect() {
+    if (this.playSample("menu", 0.9)) return;
+    this.playClick();
+  },
+
   playAdd(index) {
     const freq = 300 * Math.pow(1.05946, index);
     this.playTone(freq, { duration: 0.05, type: "triangle", gain: 0.3 });
@@ -307,6 +389,8 @@ const GameAudio = {
   },
 
   playPlace() {
+    if (this.playSample("drop", 0.85)) return;
+
     this.playTone(330, { duration: 0.08, type: "sine", gain: 0.34, slideTo: 430 });
     this.playTone(520, { duration: 0.05, type: "triangle", gain: 0.18, delay: 0.03 });
   },
@@ -355,27 +439,51 @@ const GameAudio = {
     });
   },
 
+  playRiser(level) {
+    const startFreq = 240;
+    const endFreq = 240 + level * 260;
+    const duration = 0.16 + level * 0.02;
+
+    this.playTone(startFreq, {
+      duration,
+      type: "sawtooth",
+      gain: 0.07 + level * 0.035,
+      slideTo: endFreq
+    });
+  },
+
   playPraise(level) {
-    const base = 523;
-    const notes = 3 + level;
+    const names = ["nice", "great", "awesome", "amazing", "unreal"];
+    const name = names[Math.min(Math.max(level, 1), 5) - 1];
 
-    for (let i = 0; i < notes; i++) {
-      this.playTone(this.noteFreq(base, i), {
-        duration: 0.11,
-        type: "triangle",
-        gain: 0.32,
-        delay: i * 0.052
-      });
-    }
+    this.playRiser(level);
 
-    if (level >= 3) {
-      this.playTone(base / 2, { duration: 0.3, type: "sine", gain: 0.28, delay: 0.1 });
-    }
+    const riserDuration = (0.16 + level * 0.02) * 1000;
 
-    if (level >= 5) {
-      this.playTone(base * 2, { duration: 0.22, type: "sine", gain: 0.28, delay: 0.3 });
-      this.playTone(base * 2.5, { duration: 0.22, type: "sine", gain: 0.22, delay: 0.38 });
-    }
+    setTimeout(() => {
+      if (this.playSample(name, 1)) return;
+
+      const base = 523;
+      const notes = 3 + level;
+
+      for (let i = 0; i < notes; i++) {
+        this.playTone(this.noteFreq(base, i), {
+          duration: 0.11,
+          type: "triangle",
+          gain: 0.32,
+          delay: i * 0.052
+        });
+      }
+
+      if (level >= 3) {
+        this.playTone(base / 2, { duration: 0.3, type: "sine", gain: 0.28, delay: 0.1 });
+      }
+
+      if (level >= 5) {
+        this.playTone(base * 2, { duration: 0.22, type: "sine", gain: 0.28, delay: 0.3 });
+        this.playTone(base * 2.5, { duration: 0.22, type: "sine", gain: 0.22, delay: 0.38 });
+      }
+    }, riserDuration);
   },
 
   playColorShift() {
@@ -392,6 +500,7 @@ const GameAudio = {
   },
 
   playError() {
+    if (this.playSample("error", 0.8)) return;
     this.playTone(110, { duration: 0.1, type: "square", gain: 0.16, slideTo: 70 });
   },
 
@@ -400,6 +509,7 @@ const GameAudio = {
   },
 
   playGameOver() {
+    if (this.playSample("defeat", 0.9)) return;
     this.playTone(220, { duration: 0.22, type: "sawtooth", gain: 0.17, slideTo: 70 });
   },
 
