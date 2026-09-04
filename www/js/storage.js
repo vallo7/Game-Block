@@ -18,6 +18,7 @@ getSettings() {
 const defaults = {
 sound: true,
 music: true,
+musicVolume: 100,
 vibration: true,
 adsBlocked: false
 };
