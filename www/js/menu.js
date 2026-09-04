@@ -5,7 +5,7 @@ const Menu = {
     classicModeBtn.addEventListener("click", () => {
       Tutorial.handleClassicTap();
       GameAudio.unlock();
-      GameAudio.playClick();
+      GameAudio.playModeSelect();
       Haptics.vibrate(15);
 
       if (!Tutorial.active) {
