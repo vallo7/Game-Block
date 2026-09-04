@@ -277,14 +277,21 @@ homeSettingsOverlay.classList.remove("hidden");
 }
 });
 }
-document.querySelectorAll("[data-setting]").forEach(button => {
-button.addEventListener("click", () => {
+document.querySelectorAll("input[data-setting]").forEach(input => {
+input.addEventListener("change", () => {
 GameAudio.unlock();
 GameAudio.playClick();
-const key = button.dataset.setting;
-setTimeout(() => {
-Settings.toggle(key);
-}, 120);
+Haptics.vibrate(12);
+Settings.toggle(input.dataset.setting);
+});
+});
+document.querySelectorAll(".music-volume-slider").forEach(slider => {
+slider.addEventListener("input", () => {
+GameAudio.unlock();
+Settings.setMusicVolume(slider.value);
+});
+slider.addEventListener("change", () => {
+GameAudio.playClick();
 });
 });
 },
