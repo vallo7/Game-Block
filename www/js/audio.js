@@ -11,6 +11,21 @@ const GameAudio = {
   soundEnabled: true,
   musicEnabled: false,
   musicVolume: 1,
+  paused: false,
+
+  pause() {
+    this.paused = true;
+    if (this.ctx && this.ctx.state === "running") {
+      this.ctx.suspend();
+    }
+  },
+
+  resume() {
+    this.paused = false;
+    if (this.ctx && this.ctx.state === "suspended" && !document.hidden) {
+      this.ctx.resume();
+    }
+  },
 
   getMusicPeak(base) {
     return Math.max(0.0001, base * this.musicVolume);
@@ -32,7 +47,7 @@ const GameAudio = {
 
   ensure() {
     if (this.ctx) {
-      if (this.ctx.state === "suspended" && !document.hidden) {
+      if (this.ctx.state === "suspended" && !document.hidden && !this.paused) {
         this.ctx.resume();
       }
       return;
@@ -512,7 +527,6 @@ const GameAudio = {
     if (this.playSample("defeat", 0.9)) return;
     this.playTone(220, { duration: 0.22, type: "sawtooth", gain: 0.17, slideTo: 70 });
   },
-
   // Voix (moteur de synthèse vocale du système) pour les mots d'encouragement.
   // Utilise la voix installée sur l'appareil : la qualité dépend donc du
   // téléphone, ce n'est pas une voix professionnelle enregistrée.
@@ -561,59 +575,5 @@ const GameAudio = {
     }
 
     this.playTone(base * 2, { duration: 0.3, type: "sine", gain: 0.32, delay: 0.34 });
-  },
-
-  playDefeatLong(durationMs = 3200) {
-    if (!this.soundEnabled) return;
-    if (document.hidden) return;
-
-    this.ensure();
-    if (!this.ctx || !this.master) return;
-
-    const duration = durationMs / 1000;
-    const now = this.ctx.currentTime;
-
-    const osc1 = this.ctx.createOscillator();
-    const gain1 = this.ctx.createGain();
-    const filter1 = this.ctx.createBiquadFilter();
-
-    filter1.type = "lowpass";
-    filter1.frequency.setValueAtTime(900, now);
-    filter1.frequency.exponentialRampToValueAtTime(260, now + duration);
-    filter1.Q.value = 0.4;
-
-    osc1.type = "sawtooth";
-    osc1.frequency.setValueAtTime(280, now);
-    osc1.frequency.exponentialRampToValueAtTime(55, now + duration);
-
-    gain1.gain.setValueAtTime(0.0001, now);
-    gain1.gain.exponentialRampToValueAtTime(0.24, now + 0.08);
-    gain1.gain.setValueAtTime(0.24, now + duration - 0.6);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    osc1.connect(filter1);
-    filter1.connect(gain1);
-    gain1.connect(this.master);
-
-    osc1.start(now);
-    osc1.stop(now + duration + 0.05);
-
-    const osc2 = this.ctx.createOscillator();
-    const gain2 = this.ctx.createGain();
-
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(140, now);
-    osc2.frequency.exponentialRampToValueAtTime(40, now + duration);
-
-    gain2.gain.setValueAtTime(0.0001, now);
-    gain2.gain.exponentialRampToValueAtTime(0.32, now + 0.1);
-    gain2.gain.setValueAtTime(0.32, now + duration - 0.6);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    osc2.connect(gain2);
-    gain2.connect(this.master);
-
-    osc2.start(now);
-    osc2.stop(now + duration + 0.05);
   }
 };
