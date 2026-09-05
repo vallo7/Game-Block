@@ -23,7 +23,6 @@ const Game = {
 
   requiredBlocks: 3,
   queue: [],
-  turnsSinceObstacle: 0,
 
   combo: 0,
   comboUntil: 0,
@@ -95,6 +94,12 @@ const Game = {
     this.resize();
 
     const tick = (now) => {
+      if (this.paused) {
+        this.lastFrame = now;
+        requestAnimationFrame(tick);
+        return;
+      }
+
       const realDelta = Math.min(50, now - (this.lastFrame ?? now));
       this.lastFrame = now;
 
@@ -116,6 +121,14 @@ const Game = {
     requestAnimationFrame(tick);
   },
 
+  pause() {
+    this.paused = true;
+  },
+
+  resume() {
+    this.paused = false;
+  },
+
   on(id, handler) {
     const el = document.getElementById(id);
     if (el) el.addEventListener("click", handler);
@@ -135,6 +148,7 @@ const Game = {
     this.active = false;
     this.stopCountdown();
     this.clearDefeatTimeouts();
+    this.clearObstacleTimer();
     this.unlockUI();
     this.cancelPath(false);
   },
@@ -169,7 +183,6 @@ const Game = {
     this.displayedScore = 0;
     this.turn = 1;
     this.totalCleared = 0;
-    this.turnsSinceObstacle = 0;
 
     this.combo = 0;
     this.comboUntil = 0;
@@ -226,6 +239,7 @@ const Game = {
     if (scoreEl) scoreEl.textContent = "0";
 
     this.updateHUD();
+    this.scheduleObstacleSpawn();
   },
 
   bindEvents() {
@@ -744,35 +758,85 @@ const Game = {
     return false;
   },
 
-  maybeSpawnObstacles() {
-    if (Tutorial.active) return;
+  scheduleObstacleSpawn() {
+    this.clearObstacleTimer();
 
+    if (this.gameOver || !this.active) return;
+
+    if (Tutorial.active) {
+      this.obstacleTimer = setTimeout(() => this.scheduleObstacleSpawn(), 500);
+      return;
+    }
+
+    const { minDelay, maxDelay } = this.getObstaclePace();
+    const delaySeconds = minDelay + Math.random() * (maxDelay - minDelay);
+
+    this.obstacleTimer = setTimeout(() => {
+      this.spawnRandomObstacles();
+      this.scheduleObstacleSpawn();
+    }, delaySeconds * 1000);
+  },
+
+  clearObstacleTimer() {
+    if (this.obstacleTimer) {
+      clearTimeout(this.obstacleTimer);
+      this.obstacleTimer = null;
+    }
+  },
+
+  // Cadence entre deux apparitions : 1 à 8s, qui se resserre à mesure que
+  // la partie dure (plus la difficulté/l'intensité montent, plus la
+  // fourchette haute descend), sans jamais passer sous 1s.
+  getObstaclePace() {
     const diff = this.getDifficulty();
     const intensity = this.getEndlessIntensity();
-    const interval = Math.max(1, 5 - Math.round(diff * 3) - Math.min(1, Math.round(intensity * 0.5)));
+    const progress = Math.min(1.6, diff + intensity * 0.35);
 
-    if (this.turnsSinceObstacle < interval) return;
+    const minDelay = 1;
+    const maxDelay = Math.max(minDelay + 0.3, 8 - progress * 4.6);
 
-    this.turnsSinceObstacle = 0;
+    return { minDelay, maxDelay };
+  },
 
+  // Nombre de blocs simultanés : 1 à 5. Grille vide -> plus de blocs à la
+  // fois ; grille pleine -> moins. La difficulté amplifie légèrement ce
+  // nombre sur la durée de la partie.
+  getObstacleSpawnCount() {
     const fill = this.getFillRatio();
+    const diff = this.getDifficulty();
+    const intensity = this.getEndlessIntensity();
 
-    let count = 1 + Math.round(diff * 3);
+    const fillFactor = 1 - Math.min(1, fill / 0.85);
+    const base = 1 + fillFactor * 3.4;
+    const diffBoost = (diff + Math.min(1, intensity * 0.4)) * 0.8;
 
-    if (fill > 0.78) count = Math.max(1, count - 1);
-    if (fill < 0.22) count = Math.min(4, count + 1);
+    return Math.round(Math.min(5, Math.max(1, base + diffBoost - Math.random() * 0.6)));
+  },
 
+  spawnRandomObstacles() {
+    if (this.gameOver || !this.active) return;
+
+    const count = this.getObstacleSpawnCount();
     const cells = this.chooseObstacleCells(count);
 
-    cells.forEach(cell => {
-      this.cells[cell.y][cell.x] = 3;
+    if (cells.length === 0) return;
 
-      this.cellAnims[`${cell.x},${cell.y}`] = {
-        start: this.gameNow,
-        type: "spawn"
-      };
+    cells.forEach((cell, i) => {
+      setTimeout(() => {
+        if (this.gameOver) return;
+        if (this.cells[cell.y][cell.x] !== 0) return;
 
-      this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
+        this.cells[cell.y][cell.x] = 3;
+
+        this.cellAnims[`${cell.x},${cell.y}`] = {
+          start: this.gameNow,
+          type: "spawn"
+        };
+
+        this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
+        GameAudio.playBlockSpawn(i);
+        Haptics.vibrate(10);
+      }, i * 90);
     });
   },
 
@@ -1107,13 +1171,11 @@ const Game = {
     }
 
     this.turn += 1;
-    this.turnsSinceObstacle += 1;
 
     if (emptied) {
       this.celebrateEmptyGrid();
     }
 
-    this.maybeSpawnObstacles();
     this.setupNextBlock();
     this.checkGameOver();
 
@@ -1414,6 +1476,7 @@ const Game = {
     if (this.hasPossibleMove()) return;
 
     this.gameOver = true;
+    this.clearObstacleTimer();
 
     if (this.score > this.best) {
       this.best = this.score;
@@ -1427,7 +1490,6 @@ const Game = {
       this.freezeTimeout = null;
 
       this.startFreeze();
-      GameAudio.playDefeatLong(3200);
 
       this.popupTimeout = setTimeout(() => {
         this.popupTimeout = null;
@@ -1446,8 +1508,13 @@ const Game = {
     order.forEach((cellIndex, position) => {
       const x = cellIndex % this.SIZE;
       const y = Math.floor(cellIndex / this.SIZE);
+      const delay = position * (2800 / (this.SIZE * this.SIZE));
 
-      this.freezeDelays[`${x},${y}`] = position * (2800 / (this.SIZE * this.SIZE));
+      this.freezeDelays[`${x},${y}`] = delay;
+
+      setTimeout(() => {
+        GameAudio.playFreezeTick(position % 12);
+      }, delay);
     });
 
     this.freezeFx = {
@@ -1455,11 +1522,9 @@ const Game = {
       duration: 3000
     };
 
-    for (let i = 0; i < 8; i++) {
-      setTimeout(() => {
-        GameAudio.playFreezeTick(i);
-      }, i * 360);
-    }
+    // Son de défaite : démarre ici, au tout début de la séquence de gel
+    // (remplace l'ancien son synthétisé).
+    GameAudio.playGameOver();
   },
 
   startGameOver() {
@@ -1471,17 +1536,9 @@ const Game = {
 
     this.unlockUI();
 
-    GameAudio.playGameOver();
-
     overlay.classList.remove("hidden");
 
-    ring.classList.remove("drain");
-    ring.style.transition = "none";
-    ring.style.strokeDashoffset = "0";
-    void ring.offsetWidth;
-    ring.style.transition = "";
-    ring.style.strokeDashoffset = "";
-    ring.classList.add("drain");
+    this.startRingDrain(ring);
 
     this.countdown = 10;
     countdownEl.textContent = this.countdown;
@@ -1568,6 +1625,7 @@ const Game = {
       setTimeout(() => {
         this.sequenceRunning = false;
         this.reset();
+        RateUs.maybeShowOnRestart();
       }, 2000);
     }, 300);
   },
@@ -1576,6 +1634,46 @@ const Game = {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
       this.countdownTimer = null;
+    }
+
+    this.stopRingDrain();
+  },
+
+  // Barre circulaire de décompte, entièrement pilotée en JS (aucune
+  // dépendance à une animation/transition CSS, pour un redémarrage fiable
+  // à chaque défaite de la même partie).
+  startRingDrain(ring) {
+    this.stopRingDrain();
+
+    const target = ring || document.getElementById("ringFg");
+    if (!target) return;
+
+    const CIRCUMFERENCE = 264;
+    const DURATION = 10000;
+    const start = performance.now();
+
+    target.style.strokeDashoffset = "0";
+
+    const step = now => {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / DURATION);
+
+      target.style.strokeDashoffset = String(progress * CIRCUMFERENCE);
+
+      if (progress < 1) {
+        this.ringFrame = requestAnimationFrame(step);
+      } else {
+        this.ringFrame = null;
+      }
+    };
+
+    this.ringFrame = requestAnimationFrame(step);
+  },
+
+  stopRingDrain() {
+    if (this.ringFrame) {
+      cancelAnimationFrame(this.ringFrame);
+      this.ringFrame = null;
     }
   },
 
@@ -1619,7 +1717,6 @@ const Game = {
     this.gameOver = false;
     this.freezeFx = null;
     this.freezeDelays = {};
-    this.turnsSinceObstacle = 0;
     this.timeScale = 0.5;
 
     const overlay = document.getElementById("gameOverOverlay");
@@ -1629,6 +1726,7 @@ const Game = {
 
     this.updateHUD();
     this.checkGameOver();
+    if (!this.gameOver) this.scheduleObstacleSpawn();
   },
 
   updateHUD() {
