@@ -790,6 +790,52 @@ border-top: 1px solid rgba(23, 35, 63, 0.1);
 .settings-about-logo { width: 84px; height: auto; }
 .settings-about-text { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 0.3px; margin: 0; }
 .settings-about-version { color: rgba(23, 35, 63, 0.45); font-size: 11px; font-weight: 700; margin: 0; }
+.rate-us-panel {
+width: min(100%, 300px);
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 10px;
+padding: 26px 20px 20px;
+}
+.rate-us-icon {
+width: 64px;
+height: 64px;
+border-radius: 50%;
+background-color: var(--gold);
+color: #ffffff;
+display: grid;
+place-items: center;
+box-shadow: var(--candy-inset), var(--chunk-small);
+margin-bottom: 4px;
+}
+.rate-us-icon .svg-icon { width: 32px; height: 32px; }
+.rate-us-title { color: var(--ink); font-size: 18px; font-weight: 900; text-align: center; margin: 0; }
+.rate-us-text { color: var(--muted); font-size: 13px; font-weight: 700; text-align: center; margin: 0 0 6px; }
+.rate-us-btn {
+width: 100%;
+padding: 13px;
+border: none;
+border-radius: 16px;
+background-color: var(--green);
+background-image: linear-gradient(180deg, var(--green-bright), var(--green));
+color: #ffffff;
+font-size: 15px;
+font-weight: 900;
+letter-spacing: 0.4px;
+box-shadow: var(--candy-inset), var(--chunk-small);
+transition: transform 100ms ease;
+}
+.rate-us-btn:active { transform: translateY(2px) scale(0.97); }
+.rate-us-dismiss {
+width: 100%;
+padding: 10px;
+border: none;
+background: none;
+color: var(--muted);
+font-size: 13px;
+font-weight: 800;
+}
 .restart-game-btn {
 width: 80%;
 display: flex;
@@ -840,7 +886,6 @@ stroke-linecap: round;
 stroke-dasharray: 264;
 stroke-dashoffset: 0;
 }
-.ring-fg.drain { stroke-dashoffset: 264; transition: stroke-dashoffset 10s linear; }
 .countdown-value {
 position: absolute;
 inset: 0;
