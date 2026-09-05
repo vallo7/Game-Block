@@ -8,6 +8,7 @@ Game.init();
 Menu.init();
 Tutorial.init();
 Ads.init();
+RateUs.init();
 this.bindUI();
 this.bindBackButton();
 this.bindButtonPop();
@@ -222,9 +223,9 @@ this.showMenu();
 });
 settingsRestartBtn.addEventListener("click", () => {
 GameAudio.playClick();
+Ads.maybeShowInterstitial(1 / 2);
 setTimeout(() => {
 this.closeSettings();
-Ads.maybeShowInterstitial(1 / 2);
 Game.startNewGameSequence();
 }, 200);
 });
@@ -300,6 +301,7 @@ document.getElementById("menuScreen").classList.add("active");
 document.getElementById("gameScreen").classList.remove("active");
 Game.stop();
 Ads.hideBanner();
+RateUs.maybeShowOnMenu();
 },
 showGame() {
 if (!Game.runActive) {
