@@ -2,6 +2,7 @@ const Storage = {
 settingsKey: "inkblast_settings_v2",
 bestKey: "inkblast_best_v2",
 tutorialKey: "inkblast_tutorial_v1",
+rateUsKey: "inkblast_rateus_v1",
 getTutorialDone() {
 try {
 return localStorage.getItem(this.tutorialKey) === "1";
@@ -12,6 +13,18 @@ return true;
 setTutorialDone() {
 try {
 localStorage.setItem(this.tutorialKey, "1");
+} catch (error) {}
+},
+getRateUsShown() {
+try {
+return localStorage.getItem(this.rateUsKey) === "1";
+} catch (error) {
+return true;
+}
+},
+setRateUsShown() {
+try {
+localStorage.setItem(this.rateUsKey, "1");
 } catch (error) {}
 },
 getSettings() {
