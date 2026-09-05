@@ -64,6 +64,9 @@ const Ads = {
     if (this.isBlocked() || !this.isOnline() || !this.hasPlugin() || !this.ready) return;
     if (Math.random() > chance) return;
 
+    Game.pause();
+    GameAudio.pause();
+
     try {
       const AdMob = Capacitor.Plugins.AdMob;
       await AdMob.prepareInterstitial({ adId: this.UNIT_IDS.interstitial, isTesting: true });
@@ -71,6 +74,9 @@ const Ads = {
     } catch (error) {
       // Publicité indisponible : on n'interrompt jamais le joueur pour ça.
     }
+
+    Game.resume();
+    GameAudio.resume();
   },
 
   // Publicité récompensée (bouton "Watch Ad" du panneau défaite). onComplete est
@@ -84,6 +90,9 @@ const Ads = {
       return;
     }
 
+    Game.pause();
+    GameAudio.pause();
+
     try {
       const AdMob = Capacitor.Plugins.AdMob;
       await AdMob.prepareRewardVideoAd({ adId: this.UNIT_IDS.rewarded, isTesting: true });
@@ -91,6 +100,9 @@ const Ads = {
     } catch (error) {
       // Pub indisponible : on accorde quand même la récompense.
     }
+
+    Game.resume();
+    GameAudio.resume();
 
     grant();
   },
