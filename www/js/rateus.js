@@ -106,18 +106,38 @@ const RateUs = {
     const overlay = document.getElementById("rateUsOverlay");
     if (!overlay) return;
 
-    overlay.classList.remove("hidden");
     this.promptsSinceShown = 0;
 
     if (!this.shownOnce) {
       this.shownOnce = true;
       Storage.setRateUsShown();
     }
+
+    // Micro-délai avant apparition : un affichage qui se sent plus
+    // intentionnel qu'un pop-in instantané.
+    setTimeout(() => {
+      const panel = overlay.querySelector(".rate-us-panel");
+
+      overlay.classList.remove("hidden");
+
+      if (panel) {
+        // On repart toujours d'un état neuf pour que l'animation d'entrée
+        // (panneau + étoiles) rejoue à chaque affichage, même répété.
+        panel.classList.remove("rate-us-animate-in");
+        void panel.offsetWidth;
+        panel.classList.add("rate-us-animate-in");
+      }
+    }, 220);
   },
 
   hide() {
     const overlay = document.getElementById("rateUsOverlay");
-    if (overlay) overlay.classList.add("hidden");
+    if (!overlay) return;
+
+    overlay.classList.add("hidden");
+
+    const panel = overlay.querySelector(".rate-us-panel");
+    if (panel) panel.classList.remove("rate-us-animate-in");
   },
 
   openStore() {
