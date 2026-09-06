@@ -820,38 +820,37 @@ const Game = {
   // Durée (s) de la phase d'échauffement : la cadence part de la moitié
   // haute de l'intervalle 3-10s et s'élargit progressivement vers
   // l'intervalle complet pendant cette période, avant que la difficulté
-  // ne prenne le relais (cf. getObstaclePace).
-  OBSTACLE_WARMUP_SECONDS: 40,
+  // ne prenne le relais (cf. getObstaclePace). Volontairement longue pour
+  // que le début de partie reste tranquille.
+  OBSTACLE_WARMUP_SECONDS: 100,
 
   // Difficulté du système de blocs de pierre, basée sur le temps réellement
   // écoulé depuis la fin de l'échauffement (gameNow gèle pendant une pause
   // ou une publicité, donc cette progression s'arrête avec le reste du
-  // jeu). Montée façon "expert" : ça grimpe vite sur la première minute
-  // qui suit l'échauffement, puis continue de progresser très lentement,
-  // sans jamais vraiment plafonner (pour les parties qui durent très
-  // longtemps).
+  // jeu). Courbe purement logarithmique et volontairement lente : jamais
+  // de palier, la difficulté continue de grimper indéfiniment mais de
+  // plus en plus doucement (rythme lent qui monte sans cesse, plutôt
+  // qu'une montée rapide qui se stabilise).
   getObstacleTimeDifficulty() {
     const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000 - this.OBSTACLE_WARMUP_SECONDS);
-    const ramp = 1 - Math.exp(-elapsed / 45);
-    const endless = Math.log(1 + Math.max(0, elapsed - 180) / 150);
-
-    return ramp + endless * 0.3;
+    return Math.log(1 + elapsed / 210) * 0.55;
   },
 
   // Cadence entre deux apparitions. Début de partie : tirage aléatoire
-  // dans la moitié haute de 3-10s (6.5-10s), qui s'élargit lentement et
-  // progressivement vers l'intervalle complet (3-10s) pendant les
+  // dans la moitié haute de 3-10s (6.5-10s), qui s'élargit très lentement
+  // et progressivement vers l'intervalle complet (3-10s) pendant les
   // OBSTACLE_WARMUP_SECONDS premières secondes. Une fois l'intervalle
-  // complet atteint, la difficulté resserre ensuite tout l'intervalle
-  // jusqu'à ~0.9-1.3s en toute fin de partie très longue.
+  // complet atteint, la difficulté resserre ensuite le tout, lentement et
+  // sans jamais s'arrêter, jusqu'à un plancher d'environ 0.9-1.3s pour les
+  // parties qui durent vraiment très longtemps.
   getObstaclePace() {
     const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000);
     const warmup = Math.min(1, elapsed / this.OBSTACLE_WARMUP_SECONDS);
 
-    const baseMin = 6.5 - warmup * 3.5; // 6.5s -> 3s
+    const baseMin = 6.5 - warmup * 3.5; // 6.5s -> 3s, très progressivement
     const baseMax = 10;
 
-    const t = Math.min(1.35, this.getObstacleTimeDifficulty());
+    const t = Math.min(3, this.getObstacleTimeDifficulty());
 
     const minDelay = Math.max(0.9, baseMin - t * 2.1);
     const maxDelay = Math.max(minDelay + 0.4, baseMax - t * 7.2);
@@ -865,7 +864,7 @@ const Game = {
   // légèrement ce nombre vers le haut.
   getObstacleSpawnCount() {
     const fill = this.getFillRatio();
-    const t = Math.min(1.35, this.getObstacleTimeDifficulty());
+    const t = Math.min(3, this.getObstacleTimeDifficulty());
 
     const fillFactor = 1 - Math.min(1, fill / 0.85);
     const base = 1 + fillFactor * 3.4;
