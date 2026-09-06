@@ -39,6 +39,12 @@ const Game = {
   freezeTimeout: null,
   popupTimeout: null,
 
+  // Apparition des blocs de pierre, pilotée par le temps (gameNow) plutôt
+  // que par le tour.
+  nextObstacleAt: null,
+  pendingObstacles: [],
+  runStartAt: 0,
+
   colorFx: null,
   freezeFx: null,
   freezeDelays: {},
@@ -215,6 +221,10 @@ const Game = {
     this.debris = [];
     this.shockwaves = [];
     this.lineFlashes = [];
+
+    this.runStartAt = this.gameNow;
+    this.pendingObstacles = [];
+    this.nextObstacleAt = null;
 
     this.queue = [];
     for (let i = 0; i < 3; i++) {
@@ -526,6 +536,8 @@ const Game = {
     if (praise && !praise.classList.contains("hidden") && this.gameNow > this.praiseUntil) {
       praise.classList.add("hidden");
     }
+
+    this.updateObstacleSpawner();
   },
 
   getDifficulty() {
@@ -758,61 +770,95 @@ const Game = {
     return false;
   },
 
+  // ---------- Apparition des blocs de pierre (pilotée par le temps) ----------
+  // Ne dépend plus du tour : un rendez-vous (nextObstacleAt) est fixé sur
+  // l'horloge de jeu gameNow, qui gèle automatiquement pendant une pause ou
+  // une publicité (cf. la boucle principale dans init()). Le tout est donc
+  // suspendu avec le reste du jeu sans logique supplémentaire.
   scheduleObstacleSpawn() {
-    this.clearObstacleTimer();
-
-    if (this.gameOver || !this.active) return;
-
-    if (Tutorial.active) {
-      this.obstacleTimer = setTimeout(() => this.scheduleObstacleSpawn(), 500);
+    if (this.gameOver || !this.active || Tutorial.active) {
+      this.nextObstacleAt = null;
       return;
     }
 
     const { minDelay, maxDelay } = this.getObstaclePace();
     const delaySeconds = minDelay + Math.random() * (maxDelay - minDelay);
 
-    this.obstacleTimer = setTimeout(() => {
-      this.spawnRandomObstacles();
-      this.scheduleObstacleSpawn();
-    }, delaySeconds * 1000);
+    this.nextObstacleAt = this.gameNow + delaySeconds * 1000;
   },
 
   clearObstacleTimer() {
-    if (this.obstacleTimer) {
-      clearTimeout(this.obstacleTimer);
-      this.obstacleTimer = null;
+    this.nextObstacleAt = null;
+    this.pendingObstacles = [];
+  },
+
+  // Appelé à chaque frame active (cf. update()) : déclenche l'apparition
+  // d'un groupe de blocs quand le rendez-vous est atteint, et fait avancer
+  // la petite file d'attente qui espace visuellement les blocs d'un même
+  // groupe.
+  updateObstacleSpawner() {
+    this.processPendingObstacles();
+
+    if (this.gameOver || !this.active) return;
+
+    if (Tutorial.active) {
+      this.nextObstacleAt = null; // le tutoriel gère lui-même ses propres blocs
+      return;
+    }
+
+    if (this.nextObstacleAt === null) {
+      this.scheduleObstacleSpawn();
+      return;
+    }
+
+    if (this.gameNow >= this.nextObstacleAt) {
+      this.spawnRandomObstacles();
+      this.scheduleObstacleSpawn();
     }
   },
 
-  // Cadence entre deux apparitions : 1 à 8s, qui se resserre à mesure que
-  // la partie dure (plus la difficulté/l'intensité montent, plus la
-  // fourchette haute descend), sans jamais passer sous 1s.
-  getObstaclePace() {
-    const diff = this.getDifficulty();
-    const intensity = this.getEndlessIntensity();
-    const progress = Math.min(1.6, diff + intensity * 0.35);
+  // Difficulté du système de blocs de pierre, basée sur le temps réellement
+  // écoulé depuis le début de la partie (gameNow gèle pendant une pause ou
+  // une publicité, donc cette progression s'arrête avec le reste du jeu).
+  // Montée façon "expert" : ça grimpe vite sur la première minute, puis
+  // continue de progresser très lentement, sans jamais vraiment plafonner
+  // (pour les parties qui durent très longtemps).
+  getObstacleTimeDifficulty() {
+    const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000);
+    const ramp = 1 - Math.exp(-elapsed / 45);
+    const endless = Math.log(1 + Math.max(0, elapsed - 180) / 150);
 
-    const minDelay = 1;
-    const maxDelay = Math.max(minDelay + 0.3, 8 - progress * 4.6);
+    return ramp + endless * 0.3;
+  },
+
+  // Cadence entre deux apparitions : entre 3 et 10s en début de partie,
+  // resserrée ensuite jusqu'à ~0.9-1.3s en toute fin de partie très longue.
+  getObstaclePace() {
+    const t = Math.min(1.35, this.getObstacleTimeDifficulty());
+
+    const minDelay = Math.max(0.9, 3 - t * 2.1);
+    const maxDelay = Math.max(minDelay + 0.4, 10 - t * 7.2);
 
     return { minDelay, maxDelay };
   },
 
-  // Nombre de blocs simultanés : 1 à 5. Grille vide -> plus de blocs à la
-  // fois ; grille pleine -> moins. La difficulté amplifie légèrement ce
-  // nombre sur la durée de la partie.
+  // Blocs simultanés : 1 à 5. Grille vide -> davantage de blocs à la fois,
+  // grille pleine -> moins, pour garder la partie dynamique sans jamais
+  // noyer le joueur. La difficulté (durée de la partie) pousse en plus
+  // légèrement ce nombre vers le haut.
   getObstacleSpawnCount() {
     const fill = this.getFillRatio();
-    const diff = this.getDifficulty();
-    const intensity = this.getEndlessIntensity();
+    const t = Math.min(1.35, this.getObstacleTimeDifficulty());
 
     const fillFactor = 1 - Math.min(1, fill / 0.85);
     const base = 1 + fillFactor * 3.4;
-    const diffBoost = (diff + Math.min(1, intensity * 0.4)) * 0.8;
+    const difficultyBoost = t * 0.8;
 
-    return Math.round(Math.min(5, Math.max(1, base + diffBoost - Math.random() * 0.6)));
+    return Math.round(Math.min(5, Math.max(1, base + difficultyBoost - Math.random() * 0.6)));
   },
 
+  // Choisit les cases et place les nouveaux blocs en file d'attente (léger
+  // décalage entre chaque bloc d'un même groupe, purement visuel/sonore).
   spawnRandomObstacles() {
     if (this.gameOver || !this.active) return;
 
@@ -822,22 +868,45 @@ const Game = {
     if (cells.length === 0) return;
 
     cells.forEach((cell, i) => {
-      setTimeout(() => {
-        if (this.gameOver) return;
-        if (this.cells[cell.y][cell.x] !== 0) return;
-
-        this.cells[cell.y][cell.x] = 3;
-
-        this.cellAnims[`${cell.x},${cell.y}`] = {
-          start: this.gameNow,
-          type: "spawn"
-        };
-
-        this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
-        GameAudio.playBlockSpawn(i);
-        Haptics.vibrate(10);
-      }, i * 90);
+      this.pendingObstacles.push({
+        cell,
+        at: this.gameNow + i * 90,
+        index: i
+      });
     });
+  },
+
+  // Fait avancer la file d'attente des blocs de pierre selon le temps de
+  // jeu écoulé (gelé pendant une pause/pub, comme le reste de update()).
+  processPendingObstacles() {
+    if (!this.pendingObstacles || this.pendingObstacles.length === 0) return;
+
+    this.pendingObstacles = this.pendingObstacles.filter((entry) => {
+      if (this.gameNow < entry.at) return true;
+
+      this.placeObstacleCell(entry.cell, entry.index);
+      return false;
+    });
+  },
+
+  // Pose effectivement un bloc de pierre. Un bloc ne peut jamais apparaître
+  // par-dessus un autre bloc, quel que soit son type : on revérifie que la
+  // case est toujours vide au moment de la pose, car elle a pu être
+  // occupée entre-temps par le joueur.
+  placeObstacleCell(cell, index) {
+    if (this.gameOver) return;
+    if (this.cells[cell.y][cell.x] !== 0) return;
+
+    this.cells[cell.y][cell.x] = 3;
+
+    this.cellAnims[`${cell.x},${cell.y}`] = {
+      start: this.gameNow,
+      type: "spawn"
+    };
+
+    this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
+    GameAudio.playBlockSpawn(index);
+    Haptics.vibrate(10);
   },
 
   chooseObstacleCells(count) {
@@ -1521,29 +1590,72 @@ const Game = {
       start: this.gameNow,
       duration: 3000
     };
+  },
 
-    // Son de défaite : démarre ici, au tout début de la séquence de gel
-    // (remplace l'ancien son synthétisé).
-    GameAudio.playGameOver();
+  // Reconstruit entièrement la barre circulaire de décompte : même taille,
+  // même animation et même position que l'ancienne, mais toujours un noeud
+  // SVG tout neuf, pour ne jamais hériter d'un état d'un affichage
+  // précédent du panneau pendant la même partie.
+  buildCountdownRing() {
+    const wrap = document.querySelector(".countdown-wrap");
+    if (!wrap) return document.getElementById("ringFg");
+
+    const old = wrap.querySelector(".countdown-ring");
+    if (old) old.remove();
+
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", "countdown-ring");
+    svg.setAttribute("viewBox", "0 0 100 100");
+
+    const bg = document.createElementNS(SVG_NS, "circle");
+    bg.setAttribute("class", "ring-bg");
+    bg.setAttribute("cx", "50");
+    bg.setAttribute("cy", "50");
+    bg.setAttribute("r", "42");
+
+    const fg = document.createElementNS(SVG_NS, "circle");
+    fg.setAttribute("id", "ringFg");
+    fg.setAttribute("class", "ring-fg");
+    fg.setAttribute("cx", "50");
+    fg.setAttribute("cy", "50");
+    fg.setAttribute("r", "42");
+
+    svg.appendChild(bg);
+    svg.appendChild(fg);
+
+    wrap.insertBefore(svg, wrap.firstChild);
+
+    return fg;
   },
 
   startGameOver() {
     const overlay = document.getElementById("gameOverOverlay");
-    const ring = document.getElementById("ringFg");
     const countdownEl = document.getElementById("countdownValue");
 
-    if (!overlay || !ring || !countdownEl) return;
+    if (!overlay || !countdownEl) return;
 
     this.unlockUI();
 
+    // Coupe d'abord tout minuteur/animation d'un éventuel affichage
+    // précédent du panneau pendant cette même partie, avant de reconstruire
+    // une barre toute neuve (l'ancien bug venait de l'ordre inverse : la
+    // barre fraîchement lancée était aussitôt annulée par cet arrêt).
+    this.stopCountdown();
+
+    const ring = this.buildCountdownRing();
+
     overlay.classList.remove("hidden");
+
+    // Son de défaite : démarre ici, au moment où le panneau apparaît (et
+    // non plus pendant l'animation des blocs de glace qui le précède).
+    GameAudio.playGameOver();
 
     this.startRingDrain(ring);
 
     this.countdown = 10;
     countdownEl.textContent = this.countdown;
-
-    this.stopCountdown();
 
     this.countdownTimer = setInterval(() => {
       this.countdown -= 1;
