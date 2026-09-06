@@ -9,7 +9,7 @@ const Menu = {
       Haptics.vibrate(15);
 
       if (!Tutorial.active) {
-        Ads.maybeShowInterstitial(1 / 5);
+        Ads.maybeShowInterstitial(1 / 3);
       }
 
       setTimeout(() => {
