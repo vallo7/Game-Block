@@ -1149,4 +1149,4 @@ tutorialOutroPulse 1.15s 760ms infinite ease-in-out;
 :root { --board-size: min(96vw, 480px, calc(100svh - 215px)); }
 .current-score { font-size: 44px; }
 .feedback-zone { height: 70px; }
-}
+  }
