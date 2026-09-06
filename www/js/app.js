@@ -313,10 +313,12 @@ Game.start();
 Ads.showBanner();
 },
 openSettings() {
+Game.pause();
 document.getElementById("settingsOverlay").classList.remove("hidden");
 },
 closeSettings() {
 document.getElementById("settingsOverlay").classList.add("hidden");
+Game.resume();
 }
 };
 document.addEventListener("DOMContentLoaded", () => {
