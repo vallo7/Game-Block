@@ -337,10 +337,15 @@ const Game = {
       });
     });
 
-    // Bouton RESTART : séquence de redémarrage animée (+ pub 1 fois sur 3)
-    this.on("restartBtn", () => {
+    // Bouton RESTART : séquence de redémarrage animée (+ pub 1 fois sur 2).
+    // On attend la fin du cycle pub (s'il y en a un) avant de relancer la
+    // séquence, pour ne jamais faire tourner le redémarrage pendant qu'une
+    // pub est encore en train de mettre le jeu/son en pause.
+    this.on("restartBtn", async () => {
       GameAudio.playClick();
-      Ads.maybeShowInterstitial(1 / 3);
+
+      await Ads.maybeShowInterstitial(1 / 2);
+
       this.startNewGameSequence();
     });
 
@@ -1688,9 +1693,9 @@ const Game = {
         countdownEl.textContent = "0";
         this.stopCountdown();
 
-        setTimeout(() => {
+        setTimeout(async () => {
           if (!this.gameOver) return;
-          Ads.maybeShowInterstitial(1 / 3);
+          await Ads.maybeShowInterstitial(1 / 3);
           this.startNewGameSequence();
         }, 450);
 
@@ -2300,9 +2305,9 @@ const Game = {
     const seed = this.getStoneSeed(x, y);
     const cellSize = this.getCellSize();
 
-    // Tremblement irrégulier : courte secousse rapide, puis pause aléatoire
-    // (durée de cycle et déphasage propres à chaque bloc).
-    const cycleLength = 1400 + (seed % 1700);
+    // Tremblement irrégulier : courte secousse rapide, puis longue pause
+    // aléatoire (durée de cycle et déphasage propres à chaque bloc).
+    const cycleLength = 9000 + (seed % 12000);
     const burstLength = 220;
     const t = (now + seed * 137) % cycleLength;
 
