@@ -201,7 +201,12 @@ Haptics.vibrate(20);
 Settings.data.adsBlocked = !Settings.data.adsBlocked;
 Settings.save();
 this.updateAdsUI();
-if (Settings.data.adsBlocked) Ads.hideBanner();
+if (Settings.data.adsBlocked) {
+Ads.hideBanner();
+} else {
+Ads.preloadInterstitial();
+Ads.preloadRewarded();
+}
 });
 }
 settingsBtn.addEventListener("click", () => {
@@ -222,9 +227,9 @@ this.closeSettings();
 this.showMenu();
 }, 200);
 });
-settingsRestartBtn.addEventListener("click", () => {
+settingsRestartBtn.addEventListener("click", async () => {
 GameAudio.playClick();
-Ads.maybeShowInterstitial(1 / 2);
+await Ads.maybeShowInterstitial(1 / 2);
 setTimeout(() => {
 this.closeSettings();
 Game.startNewGameSequence();
