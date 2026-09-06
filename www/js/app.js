@@ -29,6 +29,7 @@ if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
 Capacitor.Plugins.App.addListener("appStateChange", (state) => {
 if (state && typeof state.isActive === "boolean") {
 if (!state.isActive) {
+GameAudio.stopMusic();
 if (GameAudio.ctx && GameAudio.ctx.state === "running") {
 GameAudio.ctx.suspend();
 }
