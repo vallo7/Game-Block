@@ -797,19 +797,45 @@ flex-direction: column;
 align-items: center;
 gap: 10px;
 padding: 26px 20px 20px;
+transition: none;
 }
-.rate-us-icon {
-width: 64px;
-height: 64px;
-border-radius: 50%;
-background-color: var(--gold);
-color: #ffffff;
-display: grid;
-place-items: center;
-box-shadow: var(--candy-inset), var(--chunk-small);
-margin-bottom: 4px;
+.rate-us-panel.rate-us-animate-in {
+animation: rateUsPanelIn 420ms var(--spring) both;
 }
-.rate-us-icon .svg-icon { width: 32px; height: 32px; }
+@keyframes rateUsPanelIn {
+0% { transform: scale(0.75) translateY(18px); opacity: 0; }
+60% { transform: scale(1.03) translateY(-3px); opacity: 1; }
+100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.rate-us-stars {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+margin: 2px 0 4px;
+}
+.rate-us-star {
+width: 28px;
+height: 28px;
+fill: var(--gold);
+stroke: none;
+filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.18));
+opacity: 0;
+transform: scale(0.4) rotate(-20deg);
+}
+.rate-us-panel.rate-us-animate-in .rate-us-star {
+animation: rateUsStarIn 380ms var(--spring) both;
+}
+.rate-us-panel.rate-us-animate-in .rate-us-star:nth-child(1) { animation-delay: 90ms; }
+.rate-us-panel.rate-us-animate-in .rate-us-star:nth-child(2) { animation-delay: 145ms; }
+.rate-us-panel.rate-us-animate-in .rate-us-star:nth-child(3) { animation-delay: 200ms; }
+.rate-us-panel.rate-us-animate-in .rate-us-star:nth-child(4) { animation-delay: 255ms; }
+.rate-us-panel.rate-us-animate-in .rate-us-star:nth-child(5) { animation-delay: 310ms; }
+@keyframes rateUsStarIn {
+0% { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+65% { opacity: 1; transform: scale(1.18) rotate(8deg); }
+100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
 .rate-us-title { color: var(--ink); font-size: 18px; font-weight: 900; text-align: center; margin: 0; }
 .rate-us-text { color: var(--muted); font-size: 13px; font-weight: 700; text-align: center; margin: 0 0 6px; }
 .rate-us-btn {
@@ -1149,4 +1175,4 @@ tutorialOutroPulse 1.15s 760ms infinite ease-in-out;
 :root { --board-size: min(96vw, 480px, calc(100svh - 215px)); }
 .current-score { font-size: 44px; }
 .feedback-zone { height: 70px; }
-  }
+}
