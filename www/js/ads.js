@@ -83,7 +83,11 @@ const Ads = {
   // toujours appelé, même en cas d'échec, pour ne jamais pénaliser le joueur.
   // Un micro délai sépare la fin de la pub de l'octroi effectif de la récompense.
   async showRewarded(onComplete) {
-    const grant = () => setTimeout(() => { if (onComplete) onComplete(); }, 350);
+    // Pas de délai artificiel : la récompense est accordée dès que la pub
+    // (ou son absence) est réglée, sans attente superflue pour le joueur.
+    const grant = () => {
+      if (onComplete) onComplete();
+    };
 
     if (this.isBlocked() || !this.hasPlugin() || !this.ready) {
       grant();
