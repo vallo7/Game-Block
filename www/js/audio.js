@@ -137,6 +137,8 @@ const GameAudio = {
     if (!this.ctx) return;
 
     if (document.hidden) {
+      this.stopMusic();
+
       if (this.ctx.state === "running") {
         this.ctx.suspend();
       }
