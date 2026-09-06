@@ -14,9 +14,9 @@ const RateUs = {
   // Apparitions aléatoires occasionnelles : au moins MIN_PROMPTS_BETWEEN
   // passages par l'accueil/un restart entre deux propositions, puis un
   // tirage au sort à chaque fois au-delà de ce nombre.
-  MIN_PROMPTS_BETWEEN: 3,
-  MENU_CHANCE: 1 / 6,
-  RESTART_CHANCE: 1 / 8,
+  MIN_PROMPTS_BETWEEN: 6,
+  MENU_CHANCE: 1 / 14,
+  RESTART_CHANCE: 1 / 20,
 
   shownOnce: false,
   promptsSinceShown: 0,
@@ -131,4 +131,3 @@ const RateUs = {
     window.open(this.STORE_URL, "_system");
   }
 };
-
