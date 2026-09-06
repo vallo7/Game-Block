@@ -96,6 +96,14 @@ const Game = {
       if (zone) zone.appendChild(el);
     }
 
+    // Références DOM mises en cache une bonne fois pour toutes : évite de
+    // refaire ces lookups à chaque frame dans update() (optimisation pure,
+    // aucun changement de rendu ni de mécanique).
+    this.scoreEl = document.getElementById("currentScore");
+    this.bestEl = document.getElementById("bestScoreValue");
+    this.comboBadgeEl = document.getElementById("comboBadge");
+    this.praiseBadgeEl = document.getElementById("praiseBadge");
+
     this.bindEvents();
     this.resize();
 
@@ -503,18 +511,14 @@ const Game = {
   update(realDelta) {
     this.ensureCanvasSize();
 
-    const scoreEl = document.getElementById("currentScore");
-
     if (this.displayedScore !== this.score) {
       const diff = this.score - this.displayedScore;
       const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.16));
 
       this.displayedScore += diff > 0 ? step : -step;
 
-      if (scoreEl) scoreEl.textContent = this.displayedScore;
+      if (this.scoreEl) this.scoreEl.textContent = this.displayedScore;
     }
-
-    const bestEl = document.getElementById("bestScoreValue");
 
     if (this.displayedBest !== this.best) {
       const diff = this.best - this.displayedBest;
@@ -522,19 +526,15 @@ const Game = {
 
       this.displayedBest += diff > 0 ? step : -step;
 
-      if (bestEl) bestEl.textContent = this.displayedBest;
+      if (this.bestEl) this.bestEl.textContent = this.displayedBest;
     }
 
-    const badge = document.getElementById("comboBadge");
-
-    if (badge && !badge.classList.contains("hidden") && this.gameNow > this.comboUntil) {
-      badge.classList.add("hidden");
+    if (this.comboBadgeEl && !this.comboBadgeEl.classList.contains("hidden") && this.gameNow > this.comboUntil) {
+      this.comboBadgeEl.classList.add("hidden");
     }
 
-    const praise = document.getElementById("praiseBadge");
-
-    if (praise && !praise.classList.contains("hidden") && this.gameNow > this.praiseUntil) {
-      praise.classList.add("hidden");
+    if (this.praiseBadgeEl && !this.praiseBadgeEl.classList.contains("hidden") && this.gameNow > this.praiseUntil) {
+      this.praiseBadgeEl.classList.add("hidden");
     }
 
     this.updateObstacleSpawner();
@@ -817,27 +817,44 @@ const Game = {
     }
   },
 
+  // Durée (s) de la phase d'échauffement : la cadence part de la moitié
+  // haute de l'intervalle 3-10s et s'élargit progressivement vers
+  // l'intervalle complet pendant cette période, avant que la difficulté
+  // ne prenne le relais (cf. getObstaclePace).
+  OBSTACLE_WARMUP_SECONDS: 40,
+
   // Difficulté du système de blocs de pierre, basée sur le temps réellement
-  // écoulé depuis le début de la partie (gameNow gèle pendant une pause ou
-  // une publicité, donc cette progression s'arrête avec le reste du jeu).
-  // Montée façon "expert" : ça grimpe vite sur la première minute, puis
-  // continue de progresser très lentement, sans jamais vraiment plafonner
-  // (pour les parties qui durent très longtemps).
+  // écoulé depuis la fin de l'échauffement (gameNow gèle pendant une pause
+  // ou une publicité, donc cette progression s'arrête avec le reste du
+  // jeu). Montée façon "expert" : ça grimpe vite sur la première minute
+  // qui suit l'échauffement, puis continue de progresser très lentement,
+  // sans jamais vraiment plafonner (pour les parties qui durent très
+  // longtemps).
   getObstacleTimeDifficulty() {
-    const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000);
+    const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000 - this.OBSTACLE_WARMUP_SECONDS);
     const ramp = 1 - Math.exp(-elapsed / 45);
     const endless = Math.log(1 + Math.max(0, elapsed - 180) / 150);
 
     return ramp + endless * 0.3;
   },
 
-  // Cadence entre deux apparitions : entre 3 et 10s en début de partie,
-  // resserrée ensuite jusqu'à ~0.9-1.3s en toute fin de partie très longue.
+  // Cadence entre deux apparitions. Début de partie : tirage aléatoire
+  // dans la moitié haute de 3-10s (6.5-10s), qui s'élargit lentement et
+  // progressivement vers l'intervalle complet (3-10s) pendant les
+  // OBSTACLE_WARMUP_SECONDS premières secondes. Une fois l'intervalle
+  // complet atteint, la difficulté resserre ensuite tout l'intervalle
+  // jusqu'à ~0.9-1.3s en toute fin de partie très longue.
   getObstaclePace() {
+    const elapsed = Math.max(0, (this.gameNow - this.runStartAt) / 1000);
+    const warmup = Math.min(1, elapsed / this.OBSTACLE_WARMUP_SECONDS);
+
+    const baseMin = 6.5 - warmup * 3.5; // 6.5s -> 3s
+    const baseMax = 10;
+
     const t = Math.min(1.35, this.getObstacleTimeDifficulty());
 
-    const minDelay = Math.max(0.9, 3 - t * 2.1);
-    const maxDelay = Math.max(minDelay + 0.4, 10 - t * 7.2);
+    const minDelay = Math.max(0.9, baseMin - t * 2.1);
+    const maxDelay = Math.max(minDelay + 0.4, baseMax - t * 7.2);
 
     return { minDelay, maxDelay };
   },
@@ -907,6 +924,12 @@ const Game = {
     this.spawnParticles(cell.x, cell.y, 4, Theme.current.dark);
     GameAudio.playBlockSpawn(index);
     Haptics.vibrate(10);
+
+    // La détection de fin de partie doit tourner à chaque apparition de
+    // bloc de pierre, pas seulement après les coups du joueur : un bloc
+    // qui vient de se poser peut lui-même supprimer le dernier coup
+    // possible.
+    this.checkGameOver();
   },
 
   chooseObstacleCells(count) {
@@ -1542,6 +1565,7 @@ const Game = {
   },
 
   checkGameOver() {
+    if (this.gameOver) return;
     if (this.hasPossibleMove()) return;
 
     this.gameOver = true;
@@ -1568,6 +1592,10 @@ const Game = {
   },
 
   startFreeze() {
+    // Son de défaite : démarre ici, au tout début de l'animation de gel
+    // des blocs.
+    GameAudio.playGameOver();
+
     const order = this.shuffleArray(
       Array.from({ length: this.SIZE * this.SIZE }, (_, i) => i)
     );
@@ -1647,10 +1675,6 @@ const Game = {
     const ring = this.buildCountdownRing();
 
     overlay.classList.remove("hidden");
-
-    // Son de défaite : démarre ici, au moment où le panneau apparaît (et
-    // non plus pendant l'animation des blocs de glace qui le précède).
-    GameAudio.playGameOver();
 
     this.startRingDrain(ring);
 
