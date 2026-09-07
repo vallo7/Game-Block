@@ -584,21 +584,42 @@ const Game = {
     return this.cells.every(row => row.every(value => value !== 0));
   },
 
+  // Une case "en cours de tracé" (valeur 1) est un chemin non validé par
+  // le joueur : il peut encore l'annuler, donc ça ne bloque pas
+  // définitivement le plateau. La détection de coup possible doit la
+  // considérer comme disponible, sinon un bloc de pierre qui apparaît
+  // pendant que le joueur trace peut déclencher une fin de partie alors
+  // qu'un coup reste possible.
+  isOpenCell(value) {
+    return value === 0 || value === 1;
+  },
+
   hasPossibleMove() {
     const target = this.requiredBlocks;
 
     if (target <= 0) return true;
 
-    let emptyCount = 0;
+    const size = this.SIZE;
+    let openCount = 0;
 
-    for (let y = 0; y < this.SIZE; y++) {
-      for (let x = 0; x < this.SIZE; x++) {
-        if (this.cells[y][x] === 0) emptyCount++;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (this.isOpenCell(this.cells[y][x])) openCount++;
       }
     }
 
-    if (emptyCount < target) return false;
+    if (openCount < target) return false;
 
+    // Marquage réutilisé d'un appel à l'autre (compteur de génération)
+    // plutôt qu'un nouveau Set() par case de départ testée : évite de
+    // générer beaucoup de déchets mémoire sur cette fonction, appelée très
+    // souvent (à chaque coup et à chaque apparition de bloc de pierre).
+    // Comportement strictement identique à la version précédente.
+    if (!this.hasMoveMark || this.hasMoveMark.length !== size * size) {
+      this.hasMoveMark = new Int32Array(size * size);
+    }
+
+    const mark = this.hasMoveMark;
     const dirs = [
       [1, 0],
       [-1, 0],
@@ -606,38 +627,40 @@ const Game = {
       [0, -1]
     ];
 
-    const findPath = (x, y, depth, visited) => {
+    const findPath = (x, y, depth, gen) => {
       if (depth === target) return true;
 
-      const key = y * this.SIZE + x;
-      visited.add(key);
+      const key = y * size + x;
+      mark[key] = gen;
 
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx;
-        const ny = y + dy;
+      for (let i = 0; i < 4; i++) {
+        const nx = x + dirs[i][0];
+        const ny = y + dirs[i][1];
 
         if (
-          nx >= 0 && nx < this.SIZE &&
-          ny >= 0 && ny < this.SIZE &&
-          this.cells[ny][nx] === 0 &&
-          !visited.has(ny * this.SIZE + nx)
+          nx >= 0 && nx < size &&
+          ny >= 0 && ny < size &&
+          this.isOpenCell(this.cells[ny][nx]) &&
+          mark[ny * size + nx] !== gen
         ) {
-          if (findPath(nx, ny, depth + 1, visited)) {
-            visited.delete(key);
+          if (findPath(nx, ny, depth + 1, gen)) {
+            mark[key] = 0;
             return true;
           }
         }
       }
 
-      visited.delete(key);
+      mark[key] = 0;
       return false;
     };
 
-    for (let y = 0; y < this.SIZE; y++) {
-      for (let x = 0; x < this.SIZE; x++) {
-        if (this.cells[y][x] !== 0) continue;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (!this.isOpenCell(this.cells[y][x])) continue;
 
-        if (findPath(x, y, 1, new Set())) {
+        this.hasMoveGen = (this.hasMoveGen || 0) + 1;
+
+        if (findPath(x, y, 1, this.hasMoveGen)) {
           return true;
         }
       }
