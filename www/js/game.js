@@ -344,7 +344,7 @@ const Game = {
     this.on("restartBtn", async () => {
       GameAudio.playClick();
 
-      await Ads.maybeShowInterstitial(1 / 2);
+      await Ads.maybeShowInterstitial(3 / 4);
 
       this.startNewGameSequence();
     });
@@ -416,6 +416,33 @@ const Game = {
   STONE_COLOR: { name: "stone", base: "#777c8a", light: "#a1a5b4", dark: "#454852" },
   ICE_COLOR: { name: "ice", base: "#058afd", light: "#75f1fa", dark: "#0071fc" },
 
+  // Style des blocs de pierre pendant la partie : "stone" ou "ice" selon
+  // le thème visuel actif (VisualTheme). Par défaut "stone" tant que le
+  // système de thèmes n'est pas chargé.
+  getObstacleStyleName() {
+    if (window.VisualTheme && VisualTheme.current && VisualTheme.current.obstacle === "ice") {
+      return "ice";
+    }
+    return "stone";
+  },
+
+  getObstacleStyleColor() {
+    return this.getObstacleStyleName() === "ice" ? this.ICE_COLOR : this.STONE_COLOR;
+  },
+
+  // Style de l'overlay affiché sur chaque case pendant l'animation de
+  // défaite (gel) : "stone" ou "ice" selon le thème visuel actif.
+  getDefeatOverlayStyleName() {
+    if (window.VisualTheme && VisualTheme.current && VisualTheme.current.defeatOverlay === "stone") {
+      return "stone";
+    }
+    return "ice";
+  },
+
+  getDefeatOverlayColor() {
+    return this.getDefeatOverlayStyleName() === "stone" ? this.STONE_COLOR : this.ICE_COLOR;
+  },
+
   pickTurnColor() {
     const bank = this.COLOR_BANK;
     const current = Math.floor(Math.random() * bank.length);
@@ -432,6 +459,7 @@ const Game = {
 
   getBankColor(name) {
     if (name === "stone") return this.STONE_COLOR;
+    if (name === "ice") return this.ICE_COLOR;
     return this.COLOR_BANK.find(c => c.name === name) || this.COLOR_BANK[0];
   },
 
@@ -480,6 +508,11 @@ const Game = {
       g.addColorStop(0, this.ICE_COLOR.light);
       g.addColorStop(1, this.ICE_COLOR.base);
       this.frameGradients.ice = g;
+
+      g = ctx.createLinearGradient(0, 0, 0, cellSize);
+      g.addColorStop(0, this.STONE_COLOR.light);
+      g.addColorStop(1, this.STONE_COLOR.base);
+      this.frameGradients.stone = g;
     }
 
     if (sizeChanged || themeChanged) {
@@ -1509,7 +1542,7 @@ const Game = {
     for (const key of clearedKeys) {
       const [x, y] = key.split(",").map(Number);
       const value = this.cells[y][x];
-      const fromName = value === 3 ? "stone" : (this.cellColors[key] || toColor.name);
+      const fromName = value === 3 ? this.getObstacleStyleName() : (this.cellColors[key] || toColor.name);
       const fromColor = this.getBankColor(fromName);
 
       this.cellFlashes.push({
@@ -1637,7 +1670,11 @@ const Game = {
       this.freezeDelays[`${x},${y}`] = delay;
 
       setTimeout(() => {
-        GameAudio.playFreezeTick(position % 12);
+        if (this.getDefeatOverlayStyleName() === "stone") {
+          GameAudio.playBlockSpawn(position % 12);
+        } else {
+          GameAudio.playFreezeTick(position % 12);
+        }
       }, delay);
     });
 
@@ -1718,7 +1755,7 @@ const Game = {
 
         setTimeout(async () => {
           if (!this.gameOver) return;
-          await Ads.maybeShowInterstitial(1 / 3);
+          await Ads.maybeShowInterstitial(1 / 2);
           this.startNewGameSequence();
         }, 450);
 
@@ -2278,7 +2315,8 @@ const Game = {
 
         if (ice > 0) {
           const iceScale = 1 + 0.12 * Math.sin(ice * Math.PI);
-          const iceImg = this.blockImages.ice;
+          const overlayStyle = this.getDefeatOverlayStyleName();
+          const overlayImg = this.blockImages[overlayStyle];
 
           ctx.save();
           ctx.globalAlpha = ice * 0.92;
@@ -2287,10 +2325,10 @@ const Game = {
           ctx.scale(iceScale, iceScale);
           ctx.translate(-center, -center);
 
-          if (iceImg && iceImg.complete && iceImg.naturalWidth) {
-            this.drawBlockImage(ctx, iceImg, pad, pad, box, box);
+          if (overlayImg && overlayImg.complete && overlayImg.naturalWidth) {
+            this.drawBlockImage(ctx, overlayImg, pad, pad, box, box);
           } else {
-            ctx.fillStyle = this.frameGradients.ice;
+            ctx.fillStyle = this.frameGradients[overlayStyle];
             this.roundRectPath(pad, pad, box, box, r);
             ctx.fill();
           }
@@ -2359,7 +2397,7 @@ const Game = {
   },
 
   getCellImage(x, y, value) {
-    if (value === 3) return this.blockImages.stone;
+    if (value === 3) return this.blockImages[this.getObstacleStyleName()];
 
     const name = this.cellColors[`${x},${y}`];
     const entry = this.getBankColor(name);
@@ -2400,7 +2438,7 @@ const Game = {
       this.drawBlockImage(ctx, img, pad, pad, box, box);
     } else {
       // Filet de sécurité tant que l'image charge encore
-      const fallback = value === 3 ? this.STONE_COLOR : this.getBankColor(this.cellColors[`${x},${y}`]);
+      const fallback = value === 3 ? this.getObstacleStyleColor() : this.getBankColor(this.cellColors[`${x},${y}`]);
       this.roundRectPath(pad, pad, box, box, cellSize * 0.22);
       ctx.fillStyle = fallback.base;
       ctx.fill();
