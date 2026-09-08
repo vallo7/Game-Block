@@ -2130,7 +2130,11 @@ const Game = {
     const cellSize = this.getCellSize();
     const ctx = this.ctx;
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
+    const gridColor = Theme.getGridColor();
+    const shadeRgb = Theme.hexToRgb(gridColor.dark);
+    const shade = `${shadeRgb[0]}, ${shadeRgb[1]}, ${shadeRgb[2]}`;
+
+    ctx.fillStyle = `rgba(${shade}, 0.16)`;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     const pad = cellSize * 0.008;
@@ -2144,7 +2148,7 @@ const Game = {
 
         ctx.save();
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+        ctx.fillStyle = `rgba(${shade}, 0.34)`;
         this.roundRectPath(px + pad, py + pad, box, box, r);
         ctx.fill();
 
