@@ -3,6 +3,7 @@ settingsKey: "inkblast_settings_v2",
 bestKey: "inkblast_best_v2",
 tutorialKey: "inkblast_tutorial_v1",
 rateUsKey: "inkblast_rateus_v1",
+visualThemeKey: "inkblast_visual_theme_v1",
 getTutorialDone() {
 try {
 return localStorage.getItem(this.tutorialKey) === "1";
@@ -25,6 +26,18 @@ return true;
 setRateUsShown() {
 try {
 localStorage.setItem(this.rateUsKey, "1");
+} catch (error) {}
+},
+getVisualTheme() {
+try {
+return localStorage.getItem(this.visualThemeKey) || "default";
+} catch (error) {
+return "default";
+}
+},
+setVisualTheme(id) {
+try {
+localStorage.setItem(this.visualThemeKey, id);
 } catch (error) {}
 },
 getSettings() {
