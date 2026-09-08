@@ -9,11 +9,11 @@ Menu.init();
 Tutorial.init();
 Ads.init();
 RateUs.init();
+VisualTheme.init();
 this.bindUI();
 this.bindBackButton();
 this.bindButtonPop();
 this.bindVisibility();
-this.buildWatermark();
 this.updateAdsUI();
 this.showMenu();
 this.hideSplashLater();
@@ -76,6 +76,12 @@ GameAudio.playClick();
 this.showMenu();
 return;
 }
+const themeScreen = document.getElementById("themeScreen");
+if (themeScreen && themeScreen.classList.contains("active")) {
+GameAudio.playClick();
+VisualTheme.closePage();
+return;
+}
 const now = Date.now();
 if (this.lastBackPress && now - this.lastBackPress < 2000) {
 if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
@@ -108,22 +114,6 @@ splash.classList.add("hidden");
 this.splashHidden = true;
 }
 }, 1600);
-},
-buildWatermark() {
-const host = document.getElementById("watermark");
-if (!host || host.childElementCount > 0) return;
-for (let i = 0; i < 12; i++) {
-const block = document.createElement("div");
-block.className = "watermark-block";
-const size = 26 + Math.random() * 60;
-block.style.width = size + "px";
-block.style.height = size + "px";
-block.style.left = Math.random() * 100 + "%";
-block.style.top = Math.random() * 100 + "%";
-block.style.animationDuration = 14 + Math.random() * 18 + "s";
-block.style.animationDelay = -Math.random() * 20 + "s";
-host.appendChild(block);
-}
 },
 updateAdsUI() {
 const btn = document.getElementById("adsBlockBtn");
@@ -229,7 +219,7 @@ this.showMenu();
 });
 settingsRestartBtn.addEventListener("click", async () => {
 GameAudio.playClick();
-await Ads.maybeShowInterstitial(1 / 2);
+await Ads.maybeShowInterstitial(3 / 4);
 setTimeout(() => {
 this.closeSettings();
 Game.startNewGameSequence();
@@ -308,15 +298,21 @@ document.getElementById("gameScreen").classList.remove("active");
 Game.stop();
 Ads.hideBanner();
 RateUs.maybeShowOnMenu();
+VisualTheme.setDepthActive(false);
 },
 showGame() {
 if (!Game.runActive) {
+if (VisualTheme.current && VisualTheme.current.startColor) {
+Theme.useFixedColor(VisualTheme.current.startColor);
+} else {
 Theme.useMenuColor();
+}
 }
 document.getElementById("menuScreen").classList.remove("active");
 document.getElementById("gameScreen").classList.add("active");
 Game.start();
 Ads.showBanner();
+VisualTheme.setDepthActive(true);
 },
 openSettings() {
 Game.pause();
