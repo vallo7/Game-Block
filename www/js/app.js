@@ -302,10 +302,11 @@ VisualTheme.setDepthActive(false);
 },
 showGame() {
 if (!Game.runActive) {
-if (VisualTheme.current && VisualTheme.current.startColor) {
-Theme.useFixedColor(VisualTheme.current.startColor);
-} else {
 Theme.useMenuColor();
+if (VisualTheme.current && VisualTheme.current.startColor) {
+Theme.setGridOverride(VisualTheme.current.startColor);
+} else {
+Theme.clearGridOverride();
 }
 }
 document.getElementById("menuScreen").classList.remove("active");
