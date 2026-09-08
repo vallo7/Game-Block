@@ -59,7 +59,7 @@ const GameAudio = {
     this.ctx = new AudioContextClass();
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 1.15;
+    this.master.gain.value = 2.1;
     this.master.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
