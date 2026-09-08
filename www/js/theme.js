@@ -45,6 +45,19 @@ this.gameIndex = this.menuIndex;
 this.cancelAnim();
 this.setCurrentFromBank(this.menuIndex);
 },
+// Couleur de départ fixe (pas issue de la banque) : utilisée par les
+// thèmes visuels qui imposent une couleur de grille précise au début
+// d'une partie. Le cycle de couleurs habituel (shift) continue de
+// fonctionner normalement ensuite, sans changement.
+useFixedColor(color) {
+this.cancelAnim();
+this.current = {
+bg: color.bg,
+dark: color.dark,
+light: color.light
+};
+this.pushCSS();
+},
 shift(duration) {
 let next = Math.floor(Math.random() * this.bank.length);
 if (next === this.gameIndex) {
