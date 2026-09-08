@@ -8,7 +8,7 @@ const VisualTheme = {
   LIST: [
     {
       id: "default",
-      name: "Prairie",
+      name: "Meadow",
       locked: false,
       bg: "img/backgrounds/theme-default-bg.jpg",
       thumb: "img/backgrounds/thumbs/theme-default-bg-thumb.jpg",
@@ -18,7 +18,7 @@ const VisualTheme = {
     },
     {
       id: "ice",
-      name: "Glace",
+      name: "Frozen",
       locked: false,
       bg: "img/backgrounds/theme-ice-bg.jpg",
       thumb: "img/backgrounds/thumbs/theme-ice-bg-thumb.jpg",
@@ -38,7 +38,7 @@ const VisualTheme = {
     },
     {
       id: "hell",
-      name: "Enfer",
+      name: "Inferno",
       locked: true,
       bg: "img/backgrounds/theme-hell-bg.jpg",
       thumb: "img/backgrounds/thumbs/theme-hell-bg-thumb.jpg",
@@ -138,12 +138,29 @@ const VisualTheme = {
     slide.className = "theme-slide";
     slide.dataset.themeId = theme.id;
 
+    const bg = document.createElement("div");
+    bg.className = "theme-slide-bg";
+    bg.style.backgroundImage = `url("${theme.bg}")`;
+    slide.appendChild(bg);
+
+    const scrim = document.createElement("div");
+    scrim.className = "theme-slide-scrim";
+    slide.appendChild(scrim);
+
     const card = document.createElement("div");
     card.className = "theme-slide-card";
 
     const preview = document.createElement("div");
     preview.className = "theme-slide-preview";
-    preview.style.backgroundImage = `url("${theme.thumb}")`;
+
+    const ratio = document.createElement("div");
+    ratio.className = "theme-slide-preview-ratio";
+    preview.appendChild(ratio);
+
+    const img = document.createElement("div");
+    img.className = "theme-slide-preview-img";
+    img.style.backgroundImage = `url("${theme.thumb}")`;
+    preview.appendChild(img);
 
     const shine = document.createElement("div");
     shine.className = "theme-slide-shine";
@@ -245,9 +262,12 @@ const VisualTheme = {
     if (backBtn) {
       backBtn.addEventListener("click", () => {
         GameAudio.playClick();
-        this.closePage();
+        Haptics.vibrate(15);
+
+        setTimeout(() => {
+          this.closePage();
+        }, 140);
       });
     }
   }
 };
-
