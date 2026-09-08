@@ -40,6 +40,7 @@ const RateUs = {
     if (dismissBtn) {
       dismissBtn.addEventListener("click", () => {
         GameAudio.playClick();
+        Haptics.vibrate(15);
         this.hide();
       });
     }
