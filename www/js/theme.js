@@ -18,6 +18,12 @@ bg: "#6D8DE6",
 dark: "#5273C9",
 light: "#99B0F2"
 },
+// Couleur de grille indépendante : quand elle est définie, la grille
+// (drawBoard/.board-shell) l'utilise à la place de "current", sans
+// affecter les boutons/éléments qui continuent de suivre "current" comme
+// avant. Utilisée par les thèmes visuels qui imposent une couleur de
+// grille fixe au début d'une partie (cf. VisualTheme).
+gridOverride: null,
 animFrame: null,
 init() {
 this.menuIndex = Math.floor(Math.random() * this.bank.length);
@@ -39,26 +45,44 @@ const root = document.documentElement;
 root.style.setProperty("--theme-bg", this.current.bg);
 root.style.setProperty("--theme-dark", this.current.dark);
 root.style.setProperty("--theme-light", this.current.light);
+root.style.setProperty("--theme-dark-rgb", this.rgb(this.current.dark));
+if (!this.gridOverride) {
+root.style.setProperty("--grid-dark", this.current.dark);
+root.style.setProperty("--grid-light", this.current.light);
+root.style.setProperty("--grid-dark-rgb", this.rgb(this.current.dark));
+}
 },
 useMenuColor() {
 this.gameIndex = this.menuIndex;
 this.cancelAnim();
 this.setCurrentFromBank(this.menuIndex);
 },
-// Couleur de départ fixe (pas issue de la banque) : utilisée par les
-// thèmes visuels qui imposent une couleur de grille précise au début
-// d'une partie. Le cycle de couleurs habituel (shift) continue de
-// fonctionner normalement ensuite, sans changement.
-useFixedColor(color) {
-this.cancelAnim();
-this.current = {
-bg: color.bg,
-dark: color.dark,
-light: color.light
-};
-this.pushCSS();
+// Fixe une couleur de grille indépendante des boutons (thème visuel).
+// N'affecte jamais "current" (boutons, splash) : eux continuent de
+// fonctionner exactement comme avant.
+setGridOverride(color) {
+this.gridOverride = { dark: color.dark, light: color.light };
+const root = document.documentElement;
+root.style.setProperty("--grid-dark", color.dark);
+root.style.setProperty("--grid-light", color.light);
+root.style.setProperty("--grid-dark-rgb", this.rgb(color.dark));
+},
+// Retire l'override : la grille se resynchronise sur "current".
+clearGridOverride() {
+this.gridOverride = null;
+const root = document.documentElement;
+root.style.setProperty("--grid-dark", this.current.dark);
+root.style.setProperty("--grid-light", this.current.light);
+root.style.setProperty("--grid-dark-rgb", this.rgb(this.current.dark));
+},
+getGridColor() {
+return this.gridOverride || this.current;
 },
 shift(duration) {
+// Le système de changement de couleur de la grille reste fonctionnel :
+// dès qu'il se déclenche (grille vidée), la grille se resynchronise sur
+// la couleur partagée avec les boutons, comme avant.
+this.clearGridOverride();
 let next = Math.floor(Math.random() * this.bank.length);
 if (next === this.gameIndex) {
 next = (next + 1) % this.bank.length;
