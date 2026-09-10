@@ -137,6 +137,7 @@ const VisualTheme = {
     const slide = document.createElement("div");
     slide.className = "theme-slide";
     slide.dataset.themeId = theme.id;
+    if (theme.locked) slide.classList.add("is-locked");
 
     const bg = document.createElement("div");
     bg.className = "theme-slide-bg";
