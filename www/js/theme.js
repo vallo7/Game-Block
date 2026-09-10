@@ -50,18 +50,17 @@ if (!this.gridOverride) {
 this.pushGridVars(this.current);
 }
 },
-// Calcule une nuance pleine (opaque) plus sombre que "dark", utilisée
-// comme fond de plateau, pour distinguer plateau/cases par la teinte
-// plutôt que par la transparence.
+// Le plateau (fond) utilise la teinte foncée telle quelle ; les cases
+// utilisent la teinte claire (cf. drawBoard dans game.js). Gardé comme
+// méthode pour que la logique de couleur de grille reste centralisée ici.
 getGridBackdrop(color) {
-return this.mix(this.hexToRgb(color.dark), [5, 6, 20], 0.42);
+return color.dark;
 },
 pushGridVars(color) {
 const root = document.documentElement;
-const backdrop = this.getGridBackdrop(color);
 root.style.setProperty("--grid-dark", color.dark);
 root.style.setProperty("--grid-light", color.light);
-root.style.setProperty("--grid-backdrop", backdrop);
+root.style.setProperty("--grid-backdrop", color.dark);
 },
 useMenuColor() {
 this.gameIndex = this.menuIndex;
