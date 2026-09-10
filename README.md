@@ -1,4 +1,4 @@
-# Ink Blast
+# Game Block
 
 Prototype de jeu mobile puzzle créé avec :
 - HTML
@@ -8,7 +8,7 @@ Prototype de jeu mobile puzzle créé avec :
 - GitHub Actions
 
 ## Objectif
-Créer une version Android du jeu Ink Blast depuis GitHub.
+Créer une version Android du jeu Game Block depuis GitHub.
 
 ## Structure
 - `www/index.html` : prototype jouable
