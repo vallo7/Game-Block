@@ -9,7 +9,7 @@
   déjà ouvert.
 */
 const RateUs = {
-  STORE_URL: "https://play.google.com/store/apps/details?id=com.vallo7.inkblast",
+  STORE_URL: "https://play.google.com/store/apps/details?id=com.vallo7.gameblock",
 
   // Apparitions aléatoires occasionnelles : au moins MIN_PROMPTS_BETWEEN
   // passages par l'accueil/un restart entre deux propositions, puis un

@@ -65,13 +65,24 @@ const Game = {
 
   frameGradients: {},
   glowCache: {},
+  boardCache: null,
+  boardCacheKey: "",
+
+  // Ces plafonds ne sont atteints que lors de rafales d'effets. Ils évitent
+  // qu'une longue partie surcharge le Canvas et le ramasse-miettes, tout en
+  // laissant une marge très supérieure aux animations habituelles.
+  MAX_PARTICLES: 180,
+  MAX_DEBRIS: 120,
 
   lastInvalidKey: null,
   lastInvalidTime: 0,
 
   init() {
     this.canvas = document.getElementById("gameCanvas");
-    this.ctx = this.canvas.getContext("2d");
+    // Le plateau recouvre toujours tout le canvas avec une couleur opaque.
+    // Déclarer ce fait au navigateur évite une composition alpha inutile sur
+    // les WebViews Android sans modifier le rendu visible.
+    this.ctx = this.canvas.getContext("2d", { alpha: false });
 
     this.blockImages = {};
     ["blue", "yellow", "green", "purple", "pink", "stone", "ice"].forEach(name => {
@@ -1972,6 +1983,8 @@ const Game = {
     const cy = this.getCellCenterY(cellY);
 
     for (let i = 0; i < amount; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) break;
+
       const angle = Math.random() * Math.PI * 2;
       const speed = cellSize * (0.05 + Math.random() * 0.14);
       const big = Math.random() > 0.72;
@@ -1999,6 +2012,8 @@ const Game = {
     const cy = this.getCellCenterY(cellY);
 
     for (let i = 0; i < amount; i++) {
+      if (this.debris.length >= this.MAX_DEBRIS) break;
+
       const angle = Math.random() * Math.PI * 2;
       const speed = cellSize * (0.06 + Math.random() * 0.16);
 
@@ -2144,32 +2159,56 @@ const Game = {
     const backdropColor = Theme.getGridBackdrop(gridColor);
     const cellColor = gridColor.light;
 
-    ctx.fillStyle = backdropColor;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // La grille ne change qu'au redimensionnement ou lors d'un changement de
+    // thème. La reconstruire 60 fois par seconde (64 chemins + contours) est
+    // le principal coût de rendu sur les appareils modestes. On la dessine
+    // donc une fois dans un canvas hors écran puis on la copie à chaque frame.
+    const cacheKey = [this.canvas.width, this.canvas.height, backdropColor, cellColor].join("|");
+    if (this.boardCacheKey !== cacheKey) {
+      const cache = document.createElement("canvas");
+      cache.width = this.canvas.width;
+      cache.height = this.canvas.height;
+      const cacheCtx = cache.getContext("2d", { alpha: false });
 
-    const pad = cellSize * 0.008;
-    const box = cellSize - pad * 2;
-    const r = cellSize * 0.26;
+      cacheCtx.fillStyle = backdropColor;
+      cacheCtx.fillRect(0, 0, cache.width, cache.height);
 
-    for (let y = 0; y < this.SIZE; y++) {
-      for (let x = 0; x < this.SIZE; x++) {
-        const px = x * cellSize;
-        const py = y * cellSize;
+      const pad = cellSize * 0.008;
+      const box = cellSize - pad * 2;
+      const r = cellSize * 0.26;
 
-        ctx.save();
+      for (let y = 0; y < this.SIZE; y++) {
+        for (let x = 0; x < this.SIZE; x++) {
+          const px = x * cellSize;
+          const py = y * cellSize;
 
-        ctx.fillStyle = cellColor;
-        this.roundRectPath(px + pad, py + pad, box, box, r);
-        ctx.fill();
+          cacheCtx.fillStyle = cellColor;
+          this.roundRectPathOn(cacheCtx, px + pad, py + pad, box, box, r);
+          cacheCtx.fill();
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
-        ctx.lineWidth = Math.max(1, cellSize * 0.012);
-        this.roundRectPath(px + pad, py + pad, box, box, r);
-        ctx.stroke();
-
-        ctx.restore();
+          cacheCtx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+          cacheCtx.lineWidth = Math.max(1, cellSize * 0.012);
+          this.roundRectPathOn(cacheCtx, px + pad, py + pad, box, box, r);
+          cacheCtx.stroke();
+        }
       }
+
+      this.boardCache = cache;
+      this.boardCacheKey = cacheKey;
     }
+
+    ctx.drawImage(this.boardCache, 0, 0);
+  },
+
+  roundRectPathOn(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
   },
 
   getColorFxState(x, y, now) {
@@ -2798,10 +2837,10 @@ const Game = {
 
   drawParticles() {
     const ctx = this.ctx;
+    let writeIndex = 0;
 
-    this.particles = this.particles.filter(p => p.life > 0);
-
-    for (const p of this.particles) {
+    for (let readIndex = 0; readIndex < this.particles.length; readIndex++) {
+      const p = this.particles[readIndex];
       p.x += p.vx * this.timeScale;
       p.y += p.vy * this.timeScale;
       p.vx *= Math.pow(0.985, this.timeScale);
@@ -2810,6 +2849,8 @@ const Game = {
       p.life -= p.decay * this.timeScale;
 
       if (p.life <= 0) continue;
+
+      this.particles[writeIndex++] = p;
 
       ctx.save();
 
@@ -2840,14 +2881,16 @@ const Game = {
 
       ctx.restore();
     }
+
+    this.particles.length = writeIndex;
   },
 
   drawDebris() {
     const ctx = this.ctx;
+    let writeIndex = 0;
 
-    this.debris = this.debris.filter(p => p.life > 0);
-
-    for (const p of this.debris) {
+    for (let readIndex = 0; readIndex < this.debris.length; readIndex++) {
+      const p = this.debris[readIndex];
       p.x += p.vx * this.timeScale;
       p.y += p.vy * this.timeScale;
       p.vx *= Math.pow(0.98, this.timeScale);
@@ -2856,6 +2899,8 @@ const Game = {
       p.life -= p.decay * this.timeScale;
 
       if (p.life <= 0) continue;
+
+      this.debris[writeIndex++] = p;
 
       ctx.save();
 
@@ -2872,6 +2917,8 @@ const Game = {
 
       ctx.restore();
     }
+
+    this.debris.length = writeIndex;
   },
 
   invalidFeedback(x, y) {

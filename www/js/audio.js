@@ -77,8 +77,6 @@ const GameAudio = {
   sampleUrls: {
     drop: "audio/drop.mp3",
     defeat: "audio/defaite.mp3",
-    error: "audio/error.mp3",
-    menu: "audio/menu.mp3",
     nice: "audio/nice.mp3",
     great: "audio/great.mp3",
     awesome: "audio/awesome.mp3",
