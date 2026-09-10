@@ -47,10 +47,21 @@ root.style.setProperty("--theme-dark", this.current.dark);
 root.style.setProperty("--theme-light", this.current.light);
 root.style.setProperty("--theme-dark-rgb", this.rgb(this.current.dark));
 if (!this.gridOverride) {
-root.style.setProperty("--grid-dark", this.current.dark);
-root.style.setProperty("--grid-light", this.current.light);
-root.style.setProperty("--grid-dark-rgb", this.rgb(this.current.dark));
+this.pushGridVars(this.current);
 }
+},
+// Calcule une nuance pleine (opaque) plus sombre que "dark", utilisée
+// comme fond de plateau, pour distinguer plateau/cases par la teinte
+// plutôt que par la transparence.
+getGridBackdrop(color) {
+return this.mix(this.hexToRgb(color.dark), [5, 6, 20], 0.42);
+},
+pushGridVars(color) {
+const root = document.documentElement;
+const backdrop = this.getGridBackdrop(color);
+root.style.setProperty("--grid-dark", color.dark);
+root.style.setProperty("--grid-light", color.light);
+root.style.setProperty("--grid-backdrop", backdrop);
 },
 useMenuColor() {
 this.gameIndex = this.menuIndex;
@@ -62,18 +73,12 @@ this.setCurrentFromBank(this.menuIndex);
 // fonctionner exactement comme avant.
 setGridOverride(color) {
 this.gridOverride = { dark: color.dark, light: color.light };
-const root = document.documentElement;
-root.style.setProperty("--grid-dark", color.dark);
-root.style.setProperty("--grid-light", color.light);
-root.style.setProperty("--grid-dark-rgb", this.rgb(color.dark));
+this.pushGridVars(this.gridOverride);
 },
 // Retire l'override : la grille se resynchronise sur "current".
 clearGridOverride() {
 this.gridOverride = null;
-const root = document.documentElement;
-root.style.setProperty("--grid-dark", this.current.dark);
-root.style.setProperty("--grid-light", this.current.light);
-root.style.setProperty("--grid-dark-rgb", this.rgb(this.current.dark));
+this.pushGridVars(this.current);
 },
 getGridColor() {
 return this.gridOverride || this.current;
