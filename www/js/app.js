@@ -303,11 +303,6 @@ VisualTheme.setDepthActive(false);
 showGame() {
 if (!Game.runActive) {
 Theme.useMenuColor();
-if (VisualTheme.current && VisualTheme.current.startColor) {
-Theme.setGridOverride(VisualTheme.current.startColor);
-} else {
-Theme.clearGridOverride();
-}
 }
 document.getElementById("menuScreen").classList.remove("active");
 document.getElementById("gameScreen").classList.add("active");
