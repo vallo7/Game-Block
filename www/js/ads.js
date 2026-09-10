@@ -114,29 +114,30 @@ const Ads = {
   },
 
   // Publicité plein écran (mode cliqué, restart), déclenchée avec une
-  // probabilité "chance" (0-1). Toujours préchargée à l'avance : ne fait
-  // qu'afficher une pub déjà prête, sans jamais attendre de chargement au
-  // moment du clic. Renvoie une promesse que l'appelant peut attendre pour
-  // ne reprendre la main qu'une fois la pub (et la pause associée) bien
-  // terminée.
+  // probabilité "chance" (0-1). Utilise la pub préchargée si elle est
+  // prête (affichage immédiat, sans délai) ; sinon la prépare à cet
+  // instant, comme avant, pour ne jamais laisser le joueur sans pub.
+  // Le jeu et le son restent en pause pendant toute la durée réelle de
+  // l'affichage, jusqu'à ce que la pub se ferme.
   async maybeShowInterstitial(chance) {
     if (this.isBlocked() || !this.isOnline() || !this.hasPlugin() || !this.ready) return;
     if (Math.random() > chance) return;
 
-    if (!this.interstitialReady) {
-      // Pas encore prête : on ne fait jamais attendre le joueur pour ça,
-      // on retente juste un préchargement pour la prochaine fois.
-      this.preloadInterstitial();
-      return;
-    }
-
     Game.pause();
     GameAudio.pause();
 
-    this.interstitialReady = false;
-
     try {
-      await Capacitor.Plugins.AdMob.showInterstitial();
+      const AdMob = Capacitor.Plugins.AdMob;
+
+      if (!this.interstitialReady) {
+        await AdMob.prepareInterstitial({
+          adId: this.UNIT_IDS.interstitial,
+          isTesting: true
+        });
+      }
+
+      this.interstitialReady = false;
+      await AdMob.showInterstitial();
     } catch (error) {
       // Publicité indisponible : on n'interrompt jamais le joueur pour ça.
     }
@@ -147,28 +148,37 @@ const Ads = {
     this.preloadInterstitial();
   },
 
-  // Publicité récompensée (bouton "Watch Ad" du panneau défaite). Toujours
-  // préchargée à l'avance : s'affiche donc immédiatement, sans délai, au
-  // clic. onComplete est toujours appelé, même en cas d'échec, pour ne
-  // jamais pénaliser le joueur.
+  // Publicité récompensée (bouton "Watch Ad" du panneau défaite). Utilise
+  // la pub préchargée si elle est prête (affichage immédiat, sans délai) ;
+  // sinon la prépare à cet instant, comme avant, pour ne jamais laisser le
+  // joueur sans pub. onComplete est toujours appelé, même en cas d'échec,
+  // pour ne jamais pénaliser le joueur. Le jeu et le son restent en pause
+  // pendant toute la durée réelle de l'affichage.
   async showRewarded(onComplete) {
     const grant = () => {
       if (onComplete) onComplete();
     };
 
-    if (this.isBlocked() || !this.hasPlugin() || !this.ready || !this.rewardedReady) {
+    if (this.isBlocked() || !this.hasPlugin() || !this.ready) {
       grant();
-      this.preloadRewarded();
       return;
     }
 
     Game.pause();
     GameAudio.pause();
 
-    this.rewardedReady = false;
-
     try {
-      await Capacitor.Plugins.AdMob.showRewardVideoAd();
+      const AdMob = Capacitor.Plugins.AdMob;
+
+      if (!this.rewardedReady) {
+        await AdMob.prepareRewardVideoAd({
+          adId: this.UNIT_IDS.rewarded,
+          isTesting: true
+        });
+      }
+
+      this.rewardedReady = false;
+      await AdMob.showRewardVideoAd();
     } catch (error) {
       // Pub indisponible : on accorde quand même la récompense.
     }
