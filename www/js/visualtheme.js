@@ -24,7 +24,7 @@ const VisualTheme = {
       thumb: "img/backgrounds/thumbs/theme-ice-bg-thumb.jpg",
       obstacle: "ice",
       defeatOverlay: "ice",
-      startColor: null
+      startColor: { bg: "#058afd", dark: "#0071fc", light: "#75f1fa" }
     },
     {
       id: "halloween",
