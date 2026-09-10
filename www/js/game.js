@@ -2142,7 +2142,7 @@ const Game = {
 
     const gridColor = Theme.getGridColor();
     const backdropColor = Theme.getGridBackdrop(gridColor);
-    const cellColor = gridColor.dark;
+    const cellColor = gridColor.light;
 
     ctx.fillStyle = backdropColor;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
