@@ -192,6 +192,16 @@ const Game = {
     this.turnColor = null;
     this.stoneSeeds = {};
 
+    // Couleur de grille par défaut du thème visuel actif, à chaque
+    // nouvelle partie (démarrage ou restart) : reset() est le point
+    // commun aux deux cas, contrairement à App.showGame() qui ne tourne
+    // qu'au tout premier démarrage.
+    if (typeof VisualTheme !== "undefined" && VisualTheme.current && VisualTheme.current.startColor) {
+      Theme.setGridOverride(VisualTheme.current.startColor);
+    } else if (typeof Theme !== "undefined") {
+      Theme.clearGridOverride();
+    }
+
     this.path = [];
     this.score = 0;
     this.displayedScore = 0;
@@ -420,7 +430,7 @@ const Game = {
   // le thème visuel actif (VisualTheme). Par défaut "stone" tant que le
   // système de thèmes n'est pas chargé.
   getObstacleStyleName() {
-    if (window.VisualTheme && VisualTheme.current && VisualTheme.current.obstacle === "ice") {
+    if (typeof VisualTheme !== "undefined" && VisualTheme.current && VisualTheme.current.obstacle === "ice") {
       return "ice";
     }
     return "stone";
@@ -433,7 +443,7 @@ const Game = {
   // Style de l'overlay affiché sur chaque case pendant l'animation de
   // défaite (gel) : "stone" ou "ice" selon le thème visuel actif.
   getDefeatOverlayStyleName() {
-    if (window.VisualTheme && VisualTheme.current && VisualTheme.current.defeatOverlay === "stone") {
+    if (typeof VisualTheme !== "undefined" && VisualTheme.current && VisualTheme.current.defeatOverlay === "stone") {
       return "stone";
     }
     return "ice";
@@ -2131,10 +2141,10 @@ const Game = {
     const ctx = this.ctx;
 
     const gridColor = Theme.getGridColor();
-    const shadeRgb = Theme.hexToRgb(gridColor.dark);
-    const shade = `${shadeRgb[0]}, ${shadeRgb[1]}, ${shadeRgb[2]}`;
+    const backdropColor = Theme.getGridBackdrop(gridColor);
+    const cellColor = gridColor.dark;
 
-    ctx.fillStyle = `rgba(${shade}, 0.16)`;
+    ctx.fillStyle = backdropColor;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     const pad = cellSize * 0.008;
@@ -2148,7 +2158,7 @@ const Game = {
 
         ctx.save();
 
-        ctx.fillStyle = `rgba(${shade}, 0.34)`;
+        ctx.fillStyle = cellColor;
         this.roundRectPath(px + pad, py + pad, box, box, r);
         ctx.fill();
 
