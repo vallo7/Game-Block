@@ -1,8 +1,9 @@
 /*
   Thèmes visuels (fond d'écran + variantes de blocs). Distinct du système
   Theme existant (js/theme.js), qui gère uniquement les couleurs cycliques
-  de la grille, des boutons et du splash — ce fichier gère l'image de fond
-  et les variantes d'assets (blocs de pierre/glace) propres à chaque thème.
+  de la grille, des boutons et du splash — ce fichier gère l'image de fond,
+  ses petits éléments animés (motion design), et les variantes d'assets
+  (blocs de pierre/glace) propres à chaque thème.
 */
 const VisualTheme = {
   LIST: [
@@ -48,6 +49,28 @@ const VisualTheme = {
     }
   ],
 
+  // Petits éléments animés par thème (motion design), dessinés en CSS et
+  // superposés à l'image de fond statique. Chaque entrée : type de décor
+  // (cf. classes .decor-* en CSS) + combien en générer.
+  DECOR: {
+    default: [
+      { type: "cloud", count: 3 },
+      { type: "sparkle", count: 4 }
+    ],
+    ice: [
+      { type: "snow", count: 9 },
+      { type: "crystal", count: 3 },
+      { type: "sparkle", count: 3 }
+    ],
+    halloween: [
+      { type: "ghost", count: 2 },
+      { type: "star", count: 6 }
+    ],
+    hell: [
+      { type: "ember", count: 9 }
+    ]
+  },
+
   current: null,
   topLayer: "A",
 
@@ -61,6 +84,7 @@ const VisualTheme = {
     if (layerA) {
       layerA.style.backgroundImage = `url("${theme.bg}")`;
       layerA.classList.add("is-visible");
+      this.mountDecor(layerA, theme.id);
     }
 
     this.bindUI();
@@ -68,6 +92,60 @@ const VisualTheme = {
 
   getById(id) {
     return this.LIST.find(t => t.id === id) || null;
+  },
+
+  // Construit le fragment de décor animé (motion design) pour un thème,
+  // avec des positions/délais légèrement randomisés pour un rendu naturel.
+  buildDecorFragment(themeId) {
+    const groups = this.DECOR[themeId] || [];
+    const host = document.createElement("div");
+    host.className = "bg-decor";
+
+    groups.forEach((group) => {
+      for (let i = 0; i < group.count; i++) {
+        const el = document.createElement("span");
+        el.className = `decor decor-${group.type}`;
+
+        const left = Math.round(Math.random() * 90 + 2);
+        const delay = (Math.random() * 6).toFixed(2);
+        let duration = 4 + Math.random() * 3;
+        let top = Math.round(Math.random() * 70 + 5);
+
+        if (group.type === "cloud") {
+          duration = 20 + Math.random() * 12;
+          top = Math.round(Math.random() * 45 + 5);
+        } else if (group.type === "snow") {
+          duration = 7 + Math.random() * 6;
+        } else if (group.type === "ember") {
+          duration = 5 + Math.random() * 4;
+          top = Math.round(Math.random() * 30 + 60);
+        } else if (group.type === "ghost") {
+          duration = 5 + Math.random() * 2.5;
+          top = Math.round(Math.random() * 45 + 10);
+        } else if (group.type === "crystal") {
+          duration = 4.5 + Math.random() * 2.5;
+          top = Math.round(Math.random() * 55 + 15);
+        }
+
+        const drift = Math.round((Math.random() - 0.5) * 30);
+
+        el.style.left = `${left}%`;
+        el.style.top = `${top}%`;
+        el.style.animationDuration = `${duration.toFixed(2)}s`;
+        el.style.animationDelay = `${delay}s`;
+        el.style.setProperty("--drift", `${drift}px`);
+
+        host.appendChild(el);
+      }
+    });
+
+    return host;
+  },
+
+  mountDecor(container, themeId) {
+    const old = container.querySelector(".bg-decor");
+    if (old) old.remove();
+    container.appendChild(this.buildDecorFragment(themeId));
   },
 
   // Applique un thème en fondu-enchaîné entre les deux calques de fond.
@@ -82,6 +160,7 @@ const VisualTheme = {
     const outgoing = this.topLayer === "A" ? layerA : layerB;
 
     incoming.style.backgroundImage = `url("${theme.bg}")`;
+    this.mountDecor(incoming, theme.id);
     incoming.classList.add("is-visible");
     outgoing.classList.remove("is-visible");
 
@@ -143,6 +222,12 @@ const VisualTheme = {
     bg.className = "theme-slide-bg";
     bg.style.backgroundImage = `url("${theme.bg}")`;
     slide.appendChild(bg);
+
+    // Décor animé (motion design) : seulement pour les thèmes débloqués,
+    // les thèmes verrouillés restent flous/statiques.
+    if (!theme.locked) {
+      slide.appendChild(this.buildDecorFragment(theme.id));
+    }
 
     const scrim = document.createElement("div");
     scrim.className = "theme-slide-scrim";
@@ -226,22 +311,26 @@ const VisualTheme = {
     carousel.scrollLeft = prevScroll;
 
     if (!this.carouselBound) {
-      carousel.addEventListener("scroll", () => this.updateDots());
+      carousel.addEventListener("scroll", () => this.updateCarouselState());
       this.carouselBound = true;
     }
 
-    this.updateDots();
+    this.updateCarouselState();
   },
 
-  updateDots() {
+  // Met à jour les points de pagination et déclenche l'animation d'entrée
+  // du décor de la slide qui devient "courante" (au centre) au fil du swipe.
+  updateCarouselState() {
     const carousel = document.getElementById("themeCarousel");
     const dotsHost = document.getElementById("themeDots");
     if (!carousel || !dotsHost || carousel.clientWidth === 0) return;
 
     const index = Math.round(carousel.scrollLeft / carousel.clientWidth);
     const dots = dotsHost.querySelectorAll(".theme-dot");
+    const slides = carousel.querySelectorAll(".theme-slide");
 
     dots.forEach((dot, i) => dot.classList.toggle("is-active", i === index));
+    slides.forEach((slide, i) => slide.classList.toggle("is-current", i === index));
   },
 
   bindUI() {
