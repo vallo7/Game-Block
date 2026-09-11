@@ -122,13 +122,19 @@ background-size: cover;
 background-position: center;
 opacity: 0;
 transition: opacity 700ms ease;
-will-change: opacity;
+will-change: opacity, transform;
 }
 .app-bg-layer.is-visible {
 opacity: 1;
 }
 .app-bg.depth-active .app-bg-layer.is-visible {
 animation: bgDepthPan 26s ease-in-out infinite;
+}
+/* Les décors animés (nuages, neige, fantômes...) ne servent qu'à
+   l'accueil/au menu thème : coupés pendant une partie pour ne pas
+   cumuler leur coût avec le rendu du jeu (canvas) en même temps. */
+.app-bg.depth-active .bg-decor {
+display: none;
 }
 @keyframes bgDepthPan {
 0% { transform: scale(1) translate(0, 0); }
@@ -146,7 +152,7 @@ transform: scale(1.04);
 transition: opacity 550ms ease, transform 550ms ease;
 }
 .app-bg-layer.is-visible .bg-decor,
-.theme-slide.is-current .bg-decor {
+.theme-page-bg-layer.is-visible .bg-decor {
 opacity: 1;
 transform: scale(1);
 }
@@ -1341,12 +1347,49 @@ tutorialOutroPulse 1.15s 760ms infinite ease-in-out;
 }
 /* ---------- THEME PAGE ---------- */
 .theme-screen {
-background: linear-gradient(180deg, #12173f 0%, #090c28 55%, #050612 100%);
+position: relative;
+background: #050612;
+overflow: hidden;
 display: flex;
 flex-direction: column;
 padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
 }
+.theme-page-bg {
+position: absolute;
+inset: 0;
+overflow: hidden;
+z-index: 0;
+pointer-events: none;
+}
+.theme-page-bg-layer {
+position: absolute;
+inset: -4%;
+background-size: cover;
+background-position: center;
+opacity: 0;
+transition: opacity 550ms ease, filter 350ms ease, transform 350ms ease;
+will-change: opacity, transform;
+}
+.theme-page-bg-layer.is-visible {
+opacity: 1;
+}
+.theme-page-bg-layer.is-visible:not(.is-locked) {
+animation: bgDepthPan 22s ease-in-out infinite;
+}
+.theme-page-bg-layer.is-locked {
+filter: blur(16px) brightness(0.32) saturate(0.7);
+transform: scale(1.08);
+}
+.theme-page-scrim {
+position: absolute;
+inset: 0;
+z-index: 0;
+background: linear-gradient(180deg, rgba(6, 8, 24, 0.35), rgba(5, 6, 18, 0.72) 88%);
+pointer-events: none;
+}
 .theme-page-header {
+position: relative;
+z-index: 1;
 display: grid;
 grid-template-columns: 44px 1fr 44px;
 align-items: center;
@@ -1363,6 +1406,8 @@ letter-spacing: 2.4px;
 margin: 0;
 }
 .theme-carousel-wrap {
+position: relative;
+z-index: 1;
 flex: 1;
 display: flex;
 flex-direction: column;
@@ -1388,37 +1433,9 @@ flex-direction: column;
 align-items: center;
 justify-content: center;
 padding: 6px 30px;
-overflow: hidden;
-}
-.theme-slide-bg {
-position: absolute;
-inset: -4%;
-background-size: cover;
-background-position: center;
-z-index: 0;
-transition: filter 300ms ease;
-}
-.theme-slide.is-locked .theme-slide-bg {
-filter: blur(16px) brightness(0.32) saturate(0.7);
-transform: scale(1.08);
-}
-.theme-slide:not(.is-locked) .theme-slide-bg {
-animation: bgDepthPan 22s ease-in-out infinite;
-}
-.theme-slide-scrim {
-position: absolute;
-inset: 0;
-z-index: 0;
-}
-.theme-slide:not(.is-locked) .theme-slide-scrim {
-background: linear-gradient(180deg, rgba(6, 8, 24, 0.18), rgba(5, 6, 18, 0.62) 82%);
-}
-.theme-slide.is-locked .theme-slide-scrim {
-background: rgba(5, 8, 30, 0.6);
 }
 .theme-slide-card {
 position: relative;
-z-index: 1;
 width: 100%;
 max-width: 320px;
 display: flex;
@@ -1532,4 +1549,4 @@ transform: scale(1.3);
 :root { --board-size: min(96vw, 480px, calc(100svh - 215px)); }
 .current-score { font-size: 44px; }
 .feedback-zone { height: 70px; }
-                 }
+  }
