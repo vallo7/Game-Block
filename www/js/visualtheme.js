@@ -15,7 +15,7 @@ const VisualTheme = {
       thumb: "img/backgrounds/thumbs/theme-default-bg-thumb.jpg",
       obstacle: "stone",
       defeatOverlay: "stone",
-      startColor: { bg: "#1d1f49", dark: "#2c2e6d", light: "#7578c7" }
+      startColor: { bg: "#0a0c4d", dark: "#070836", light: "#9192af" }
     },
     {
       id: "ice",
@@ -73,8 +73,6 @@ const VisualTheme = {
 
   current: null,
   topLayer: "A",
-  pageTopLayer: "A",
-  pageCurrentId: null,
 
   init() {
     const savedId = Storage.getVisualTheme();
@@ -150,8 +148,7 @@ const VisualTheme = {
     container.appendChild(this.buildDecorFragment(themeId));
   },
 
-  // Applique un thème en fondu-enchaîné entre les deux calques de fond
-  // partagés (accueil + jeu).
+  // Applique un thème en fondu-enchaîné entre les deux calques de fond.
   apply(theme) {
     this.current = theme;
 
@@ -168,44 +165,6 @@ const VisualTheme = {
     outgoing.classList.remove("is-visible");
 
     this.topLayer = this.topLayer === "A" ? "B" : "A";
-  },
-
-  // Fond plein écran dédié à la page de sélection de thème (couvre aussi
-  // l'en-tête), mis à jour à chaque fois que la slide "courante" change en
-  // swipant. Flou pour un thème verrouillé, net + profondeur + décor pour
-  // un thème débloqué.
-  applyPageBackground(theme, animate) {
-    if (!theme || this.pageCurrentId === theme.id) return;
-    this.pageCurrentId = theme.id;
-
-    const layerA = document.getElementById("themePageBgLayerA");
-    const layerB = document.getElementById("themePageBgLayerB");
-    if (!layerA || !layerB) return;
-
-    const incoming = this.pageTopLayer === "A" ? layerB : layerA;
-    const outgoing = this.pageTopLayer === "A" ? layerA : layerB;
-
-    incoming.style.backgroundImage = `url("${theme.bg}")`;
-    incoming.classList.toggle("is-locked", Boolean(theme.locked));
-
-    const old = incoming.querySelector(".bg-decor");
-    if (old) old.remove();
-    if (!theme.locked) {
-      incoming.appendChild(this.buildDecorFragment(theme.id));
-    }
-
-    if (animate === false) {
-      incoming.style.transition = "none";
-      incoming.classList.add("is-visible");
-      outgoing.classList.remove("is-visible");
-      void incoming.offsetWidth;
-      incoming.style.transition = "";
-    } else {
-      incoming.classList.add("is-visible");
-      outgoing.classList.remove("is-visible");
-    }
-
-    this.pageTopLayer = this.pageTopLayer === "A" ? "B" : "A";
   },
 
   setDepthActive(active) {
@@ -243,7 +202,6 @@ const VisualTheme = {
   },
 
   openPage() {
-    this.pageCurrentId = null;
     this.renderCarousel();
     document.getElementById("menuScreen").classList.remove("active");
     document.getElementById("themeScreen").classList.add("active");
@@ -259,6 +217,21 @@ const VisualTheme = {
     slide.className = "theme-slide";
     slide.dataset.themeId = theme.id;
     if (theme.locked) slide.classList.add("is-locked");
+
+    const bg = document.createElement("div");
+    bg.className = "theme-slide-bg";
+    bg.style.backgroundImage = `url("${theme.bg}")`;
+    slide.appendChild(bg);
+
+    // Décor animé (motion design) : seulement pour les thèmes débloqués,
+    // les thèmes verrouillés restent flous/statiques.
+    if (!theme.locked) {
+      slide.appendChild(this.buildDecorFragment(theme.id));
+    }
+
+    const scrim = document.createElement("div");
+    scrim.className = "theme-slide-scrim";
+    slide.appendChild(scrim);
 
     const card = document.createElement("div");
     card.className = "theme-slide-card";
@@ -342,24 +315,22 @@ const VisualTheme = {
       this.carouselBound = true;
     }
 
-    this.updateCarouselState(prevScroll === 0);
+    this.updateCarouselState();
   },
 
-  // Met à jour les points de pagination et le fond plein écran de la page
-  // pour qu'il corresponde à la slide "courante" (au centre) au fil du
-  // swipe. initial=true la toute première fois (pas de fondu à jouer).
-  updateCarouselState(initial) {
+  // Met à jour les points de pagination et déclenche l'animation d'entrée
+  // du décor de la slide qui devient "courante" (au centre) au fil du swipe.
+  updateCarouselState() {
     const carousel = document.getElementById("themeCarousel");
     const dotsHost = document.getElementById("themeDots");
     if (!carousel || !dotsHost || carousel.clientWidth === 0) return;
 
     const index = Math.round(carousel.scrollLeft / carousel.clientWidth);
     const dots = dotsHost.querySelectorAll(".theme-dot");
+    const slides = carousel.querySelectorAll(".theme-slide");
 
     dots.forEach((dot, i) => dot.classList.toggle("is-active", i === index));
-
-    const theme = this.LIST[index];
-    if (theme) this.applyPageBackground(theme, !initial);
+    slides.forEach((slide, i) => slide.classList.toggle("is-current", i === index));
   },
 
   bindUI() {
